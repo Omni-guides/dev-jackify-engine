@@ -392,6 +392,7 @@ public class FileExtractor
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);
+                    f.Delete();
                     return (path, mapResult);
                 })
                 .Where(d => d.Item1 != default)
