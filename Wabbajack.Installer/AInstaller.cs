@@ -83,7 +83,7 @@ public abstract class AInstaller<T>
         ExtractedModlistFolder = _manager.CreateFolder();
         _configuration = config;
         _logger = logger;
-        _extractor = extractor;
+        _extractor = extractor.WithTemporaryFileManager(_manager);
         _jsonSerializer = jsonSerializer;
         _vfs = vfs.WithTemporaryFileManager(_manager);
         FileHashCache = fileHashCache;

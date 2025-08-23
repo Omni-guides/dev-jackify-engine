@@ -67,23 +67,61 @@ public class TexConvImageLoader : IImageLoader
         CancellationToken token)
     {
         var outFolder = _tempManager.CreateFolder();
-        var outFile = input.FileName.RelativeTo(outFolder.Path);
-        await ConvertImage(input, outFolder.Path, width, height, mipMaps, format, input.Extension);
-        await outFile.MoveToAsync(output, token: token, overwrite:true);
+        try
+        {
+            var outFile = input.FileName.RelativeTo(outFolder.Path);
+            await ConvertImage(input, outFolder.Path, width, height, mipMaps, format, input.Extension);
+            await outFile.MoveToAsync(output, token: token, overwrite:true);
+        }
+        finally
+        {
+            await outFolder.DisposeAsync();
+        }
     }
 
     public async Task Recompress(Stream input, int width, int height, int mipMaps, DXGI_FORMAT format, Stream output, CancellationToken token,
         bool leaveOpen = false)
     {
         var type = await DetermineType(input);
-        await using var toFolder = _tempManager.CreateFolder();
-        await using var fromFile = _tempManager.CreateFile(type);
-        await input.CopyToAsync(fromFile.Path, token);
-        var toFile = fromFile.Path.FileName.RelativeTo(toFolder);
+        var toFolder = _tempManager.CreateFolder();
+        var fromFile = _tempManager.CreateFile(type);
         
-        await ConvertImage(fromFile.Path, toFolder.Path, width, height, mipMaps, format, type);
-        await using var fs = toFile.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
-        await fs.CopyToAsync(output, token);
+        try
+        {
+            await input.CopyToAsync(fromFile.Path, token);
+            var toFile = fromFile.Path.FileName.RelativeTo(toFolder.Path);
+            
+            await ConvertImage(fromFile.Path, toFolder.Path, width, height, mipMaps, format, type);
+            
+            // Handle case sensitivity issue - texconv.exe might create files with different case extensions
+            if (!toFile.FileExists())
+            {
+                // Try to find the actual output file created by texconv.exe (case insensitive)
+                var expectedBaseName = toFile.FileName.FileNameWithoutExtension;
+                var actualFile = toFolder.Path.EnumerateFiles()
+                    .FirstOrDefault(f => string.Equals(f.FileName.FileNameWithoutExtension.ToString(), expectedBaseName.ToString(), StringComparison.OrdinalIgnoreCase));
+                
+                if (actualFile != null)
+                {
+                    _logger.LogDebug("Using actual output file: {ActualFile} (expected: {ExpectedFile})", actualFile, toFile);
+                    toFile = actualFile;
+                }
+                else
+                {
+                    var availableFiles = toFolder.Path.EnumerateFiles().Select(f => f.FileName).ToArray();
+                    throw new FileNotFoundException($"TexConv failed to create output file. Expected: {toFile.FileName}, Available: [{string.Join(", ", availableFiles)}]");
+                }
+            }
+            
+            await using var fs = toFile.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+            await fs.CopyToAsync(output, token);
+        }
+        finally
+        {
+            // Manually dispose temp resources after all operations complete
+            await fromFile.DisposeAsync();
+            await toFolder.DisposeAsync();
+        }
     }
     
     
@@ -91,12 +129,16 @@ public class TexConvImageLoader : IImageLoader
 
     public async Task ConvertImage(AbsolutePath from, AbsolutePath toFolder, int w, int h, int mipMaps, DXGI_FORMAT format, Extension fileFormat)
     {
+        // Convert Linux paths to Wine format for Proton
+        var wineFromPath = ProtonDetector.ConvertToWinePath(from);
+        var wineToFolderPath = ProtonDetector.ConvertToWinePath(toFolder);
+        
         object[] args;
         if (mipMaps != 0)
         {
             args = new object[]
             {
-                from, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", toFolder, "-w", w, "-h", h, "-m", mipMaps,
+                wineFromPath, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", wineToFolderPath, "-w", w, "-h", h, "-m", mipMaps,
                 "-if", "CUBIC", "-singleproc"
             };
         }
@@ -104,7 +146,7 @@ public class TexConvImageLoader : IImageLoader
         {
             args = new object[]
             {
-                from, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", toFolder, "-w", w, "-h", h,
+                wineFromPath, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", wineToFolderPath, "-w", w, "-h", h,
                 "-if", "CUBIC", "-singleproc"
             };
         }
@@ -116,10 +158,17 @@ public class TexConvImageLoader : IImageLoader
 
     public async Task ConvertImage(Stream from, ImageState state, Extension ext, AbsolutePath to)
     {
-        await using var tmpFile = _tempManager.CreateFolder();
-        var inFile = to.FileName.RelativeTo(tmpFile.Path);
-        await inFile.WriteAllAsync(from, CancellationToken.None);
-        await ConvertImage(inFile, to.Parent, state.Width, state.Height, state.MipLevels, state.Format, ext);
+        var tmpFile = _tempManager.CreateFolder();
+        try
+        {
+            var inFile = to.FileName.RelativeTo(tmpFile.Path);
+            await inFile.WriteAllAsync(from, CancellationToken.None);
+            await ConvertImage(inFile, to.Parent, state.Width, state.Height, state.MipLevels, state.Format, ext);
+        }
+        finally
+        {
+            await tmpFile.DisposeAsync();
+        }
     }
     
     // Internals
@@ -127,7 +176,9 @@ public class TexConvImageLoader : IImageLoader
     {
         try
         {
-            var ph = await _protonManager.CreateTexDiagProcess(new object[] { "info", path, "-nologo" });
+            // Convert Linux path to Wine format for Proton
+            var winePathArg = ProtonDetector.ConvertToWinePath(path);
+            var ph = await _protonManager.CreateTexDiagProcess(new object[] { "info", winePathArg, "-nologo" });
             var lines = new ConcurrentStack<string>();
             using var _ = ph.Output.Where(p => p.Type == ProcessHelper.StreamType.Output)
                 .Select(p => p.Line)

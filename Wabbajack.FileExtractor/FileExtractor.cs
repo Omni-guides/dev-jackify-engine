@@ -225,7 +225,7 @@ public class FileExtractor
     {
         var tmpFile = _manager.CreateFile();
         await tmpFile.Path.WriteAllAsync(archive, CancellationToken.None);
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         using var omod = new OMOD(tmpFile.Path.ToString());
 
@@ -283,7 +283,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -322,16 +322,37 @@ public class FileExtractor
                 //It's stupid that we have to do this, but 7zip's file pattern matching isn't very fuzzy
                 IEnumerable<string> AllVariants(string input)
                 {
-                    var forward = input.Replace("\\", "/");
                     yield return $"\"{input}\"";
                     yield return $"\"\\{input}\"";
-                    yield return $"\"{forward}\"";
-                    yield return $"\"/{forward}\"";
+                    yield return $"\"{input.Replace("\\", "/")}\"";
+                    yield return $"\"/{input.Replace("\\", "/")}\"";
+                }
+
+                // Debug logging for onlyFiles content
+                _logger.LogInformation("7zip extraction for {Source} - {Count} files in onlyFiles list", source.FileName, onlyFiles.Count);
+                foreach (var file in onlyFiles.Take(20)) // Log first 20 files
+                {
+                    _logger.LogDebug("onlyFiles contains: {File}", file);
+                }
+                if (onlyFiles.Count > 20)
+                    _logger.LogDebug("... and {More} more files", onlyFiles.Count - 20);
+
+                // Check specifically for PriorityMod.dll
+                var priorityModFile = onlyFiles.FirstOrDefault(f => f.ToString().Contains("PriorityMod.dll"));
+                if (priorityModFile != null)
+                {
+                    _logger.LogInformation("FOUND PriorityMod.dll in onlyFiles: {File}", priorityModFile);
+                }
+                else
+                {
+                    _logger.LogWarning("PriorityMod.dll NOT FOUND in onlyFiles list!");
                 }
 
                 tmpFile = _manager.CreateFile();
-                await tmpFile.Value.Path.WriteAllLinesAsync(onlyFiles.SelectMany(f => AllVariants((string) f)),
-                    token);
+                var allVariants = onlyFiles.SelectMany(f => AllVariants((string) f)).ToList();
+                await tmpFile.Value.Path.WriteAllLinesAsync(allVariants, token);
+                
+
                 process.Arguments =
                 [
                     "x", "-bsp1", "-y", $"-o\"{dest}\"", source, $"@\"{tmpFile.Value.ToString()}\"", "-mmt=2"
@@ -371,24 +392,32 @@ public class FileExtractor
 
             var exitCode = await process.Start();
 
-
-
-            /*
+            // Check for 7zip extraction errors
             if (exitCode != 0)
             {
-                Utils.ErrorThrow(new _7zipReturnError(exitCode, source, dest, ""));
+                throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
             }
-            else
-            {
-                Utils.Status($"Extracting {source.FileName} - done", Percent.One, alsoLog: true);
-            }*/
 
+            // Post-process: move files with backslashes in their names to correct subdirectories
+            await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
+
+            // Add small delay to ensure file system sync after extraction
+            await Task.Delay(100, token);
+            
+            // Debug: List actual extracted files
+            _logger.LogInformation("DEBUG: Listing actual extracted files in {TempDir}", dest.Path);
+            var actualFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
+            foreach (var file in actualFiles.Take(10)) // Log first 10 files
+            {
+                _logger.LogInformation("DEBUG: Actual extracted file: {File}", file);
+            }
             
             job.Dispose();
             var results = await dest.Path.EnumerateFiles()
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
+                    _logger.LogDebug("DEBUG: Processing extracted file path: {Path}, shouldExtract: {ShouldExtract}", path, shouldExtract(path));
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);
@@ -419,7 +448,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -511,7 +540,7 @@ public class FileExtractor
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);
-                    // Don't delete the file here - let the ExtractedNativeFile handle it during move
+                    f.Delete();
                     return (path, mapResult);
                 })
                 .Where(d => d.Item1 != default)
@@ -543,25 +572,51 @@ public class FileExtractor
         }, token, progressFunction: updateProgress);
     }
     
-    private void LogDirectoryStructure(AbsolutePath path, string indent)
+
+
+    /// <summary>
+    /// Moves any files with backslashes in their names to the correct subdirectory structure.
+    /// </summary>
+    private async Task MoveFilesWithBackslashesToSubdirs(string extractionDir)
     {
-        try
+        if (!Directory.Exists(extractionDir))
         {
-            foreach (var file in path.EnumerateFiles(recursive: true))
+            _logger.LogWarning($"[POST-PROCESS] Extraction directory does not exist: {extractionDir}");
+            return;
+        }
+        
+        var files = Directory.GetFiles(extractionDir, "*", SearchOption.AllDirectories);
+        var backslashFiles = new List<string>();
+        
+        foreach (var file in files)
+        {
+            var fileName = Path.GetFileName(file);
+            if (fileName.Contains("\\"))
             {
-                var relativePath = file.RelativeTo(path);
-                _logger.LogInformation("{Indent}FILE: {RelativePath}", indent, relativePath);
+                backslashFiles.Add(file);
             }
+        }
+        
+        foreach (var file in backslashFiles)
+        {
+            var fileName = Path.GetFileName(file);
+            var parts = fileName.Split(new[] {'\\'}, StringSplitOptions.RemoveEmptyEntries);
+            var newPath = Path.Combine(Path.GetDirectoryName(file)!, Path.Combine(parts));
+            var newDir = Path.GetDirectoryName(newPath)!;
             
-            foreach (var dir in path.EnumerateDirectories())
+            try
             {
-                _logger.LogInformation("{Indent}DIR: {DirName}", indent, dir.FileName);
-                LogDirectoryStructure(dir, indent + "  ");
+                if (!Directory.Exists(newDir))
+                {
+                    Directory.CreateDirectory(newDir);
+                }
+                File.Move(file, newPath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[POST-PROCESS] Failed to move {File} to {NewPath}", file, newPath);
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error logging directory structure for {Path}", path);
-        }
+        await Task.CompletedTask;
     }
 }
