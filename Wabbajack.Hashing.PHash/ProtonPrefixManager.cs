@@ -109,6 +109,7 @@ namespace Wabbajack.Hashing.PHash
                     ["WINEDEBUG"] = "-all",
                     ["DISPLAY"] = ""
                 },
+                WorkingDirectory = KnownFolders.EntryPoint.ToString(),
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
             };
@@ -143,6 +144,7 @@ namespace Wabbajack.Hashing.PHash
                     ["WINEDEBUG"] = "-all",
                     ["DISPLAY"] = ""
                 },
+                WorkingDirectory = KnownFolders.EntryPoint.ToString(),
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
             };

@@ -27,6 +27,8 @@ public class ProcessHelper
     public bool ThrowOnNonZeroExitCode { get; set; } = false;
 
     public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
+    
+    public string? WorkingDirectory { get; set; }
 
     public async Task<int> Start()
     {
@@ -47,7 +49,8 @@ public class ProcessHelper
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            WorkingDirectory = WorkingDirectory
         };
 
         // Set environment variables if provided
