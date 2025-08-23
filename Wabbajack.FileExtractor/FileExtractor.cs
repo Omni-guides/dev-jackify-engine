@@ -339,7 +339,7 @@ public class FileExtractor
             }
             else
             {
-                process.Arguments = ["x", "-bsp1", "-y", "-r", $"-o\"{dest}\"", source, "-mmt=2"];
+                process.Arguments = ["x", "-bsp1", "-y", $"-o\"{dest}\"", source, "-mmt=2"];
             }
 
             _logger.LogTrace("{prog} {args}", process.Path, process.Arguments);
