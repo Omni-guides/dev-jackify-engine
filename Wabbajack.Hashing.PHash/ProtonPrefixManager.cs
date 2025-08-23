@@ -8,6 +8,7 @@ using System.Linq;
 using Wabbajack.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 
 namespace Wabbajack.Hashing.PHash
 {
@@ -90,6 +91,28 @@ namespace Wabbajack.Hashing.PHash
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
 
+            // Create a symlink to avoid path with spaces issues
+            var tempProtonPath = KnownFolders.EntryPoint.Parent.Parent.Combine("temp_proton");
+            if (tempProtonPath.FileExists())
+            {
+                tempProtonPath.Delete();
+            }
+            
+            // Create symlink to Proton executable
+            var symlinkProcess = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "ln",
+                    Arguments = $"-sf \"{protonWrapperPath}\" \"{tempProtonPath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                }
+            };
+            symlinkProcess.Start();
+            await symlinkProcess.WaitForExitAsync();
+
             // Convert Linux path to Wine path for texconv.exe
             var texconvPath = @"Tools\texconv.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint);
             var wineTexconvPath = ProtonDetector.ConvertToWinePath(texconvPath);
@@ -98,7 +121,7 @@ namespace Wabbajack.Hashing.PHash
             
             return new ProcessHelper
             {
-                Path = protonWrapperPath.ToAbsolutePath(),
+                Path = tempProtonPath,
                 Arguments = new object[] { "run", wineTexconvPath }.Concat(texConvArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
@@ -124,6 +147,28 @@ namespace Wabbajack.Hashing.PHash
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
 
+            // Create a symlink to avoid path with spaces issues
+            var tempProtonPath = KnownFolders.EntryPoint.Parent.Parent.Combine("temp_proton");
+            if (tempProtonPath.FileExists())
+            {
+                tempProtonPath.Delete();
+            }
+            
+            // Create symlink to Proton executable
+            var symlinkProcess = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "ln",
+                    Arguments = $"-sf \"{protonWrapperPath}\" \"{tempProtonPath}\"",
+                    UseShellExecute = false,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                }
+            };
+            symlinkProcess.Start();
+            await symlinkProcess.WaitForExitAsync();
+
             // Convert Linux path to Wine path for texdiag.exe
             var texdiagPath = @"Tools\texdiag.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint);
             var wineTexdiagPath = ProtonDetector.ConvertToWinePath(texdiagPath);
@@ -132,7 +177,7 @@ namespace Wabbajack.Hashing.PHash
             
             return new ProcessHelper
             {
-                Path = protonWrapperPath.ToAbsolutePath(),
+                Path = tempProtonPath,
                 Arguments = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
