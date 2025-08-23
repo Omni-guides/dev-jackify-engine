@@ -403,7 +403,7 @@ public class FileExtractor
 
             
             job.Dispose();
-            var results = await dest.Path.EnumerateFiles()
+            var results = await dest.Path.EnumerateFiles(recursive: true)
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
@@ -546,7 +546,7 @@ public class FileExtractor
             }
             
             job.Dispose();
-            var results = await dest.Path.EnumerateFiles()
+            var results = await dest.Path.EnumerateFiles(recursive: true)
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
