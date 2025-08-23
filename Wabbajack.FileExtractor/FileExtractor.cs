@@ -371,34 +371,7 @@ public class FileExtractor
 
             var exitCode = await process.Start();
 
-            // Add debugging to see what files were actually extracted
-            _logger.LogInformation("7zip extraction completed with exit code: {ExitCode}", exitCode);
-            _logger.LogInformation("Extraction destination: {DestPath}", dest.Path);
-            
-            // Log all extracted files for debugging
-            var extractedFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
-            _logger.LogInformation("Extracted {FileCount} files:", extractedFiles.Count);
-            foreach (var file in extractedFiles.Take(10)) // Log first 10 files
-            {
-                var relativePath = file.RelativeTo(dest.Path);
-                _logger.LogInformation("  - {RelativePath}", relativePath);
-            }
-            if (extractedFiles.Count > 10)
-            {
-                _logger.LogInformation("  ... and {MoreCount} more files", extractedFiles.Count - 10);
-            }
-            
-            // Also log all directories and files recursively
-            _logger.LogInformation("Full directory structure:");
-            LogDirectoryStructure(dest.Path, "");
-            
-            // Check if files still exist right after extraction
-            _logger.LogInformation("Checking file existence immediately after extraction:");
-            foreach (var file in extractedFiles.Take(5))
-            {
-                var exists = file.FileExists();
-                _logger.LogInformation("  - {File}: {Exists}", file, exists);
-            }
+
 
             /*
             if (exitCode != 0)
@@ -412,71 +385,29 @@ public class FileExtractor
 
             
             job.Dispose();
-            
-            // Check if files exist right before processing loop
-            _logger.LogInformation("Checking file existence before processing loop:");
-            var allFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
-            foreach (var file in allFiles)
-            {
-                var exists = file.FileExists();
-                _logger.LogInformation("  - {File}: {Exists}", file, exists);
-            }
-            
-            var results = await dest.Path.EnumerateFiles(recursive: true)
+            var results = await dest.Path.EnumerateFiles()
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
-                    _logger.LogDebug("Processing extracted file: {FullPath} -> {RelativePath}", f, path);
-                    
-                    // Check if file still exists before processing
-                    if (!f.FileExists())
-                    {
-                        _logger.LogWarning("File no longer exists during processing: {FullPath}", f);
-                        return ((RelativePath, T)) default;
-                    }
-                    
-                    if (!shouldExtract(path)) 
-                    {
-                        _logger.LogDebug("Skipping file (shouldExtract=false): {Path}", path);
-                        return ((RelativePath, T)) default;
-                    }
+                    if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
-                    _logger.LogDebug("Creating ExtractedNativeFile for: {FullPath}", f);
                     var mapResult = await mapfn(path, file);
-                    _logger.LogDebug("Map result for {Path}: {Result}", path, mapResult);
-                    // Don't delete the file here - let the ExtractedNativeFile handle it during move
+                    f.Delete();
                     return (path, mapResult);
                 })
                 .Where(d => d.Item1 != default)
                 .ToDictionary(d => d.Item1, d => d.Item2);
-            
-            _logger.LogInformation("Final results count: {Count}", results.Count);
-            foreach (var kvp in results)
-            {
-                _logger.LogDebug("Result: {Path} -> {Value}", kvp.Key, kvp.Value);
-            }
             
 
             return results;
         }
         finally
         {
-            _logger.LogInformation("FINALLY BLOCK EXECUTING - Cleaning up resources");
             job.Dispose();
             
-            if (tmpFile != null) 
-            {
-                _logger.LogInformation("Disposing tmpFile: {Path}", tmpFile.Value.Path);
-                await tmpFile.Value.DisposeAsync();
-            }
+            if (tmpFile != null) await tmpFile.Value.DisposeAsync();
 
-            if (spoolFile != null) 
-            {
-                _logger.LogInformation("Disposing spoolFile: {Path}", spoolFile.Value.Path);
-                await spoolFile.Value.DisposeAsync();
-            }
-            
-            // Let the await using handle dest disposal automatically
+            if (spoolFile != null) await spoolFile.Value.DisposeAsync();
         }
     }
     
