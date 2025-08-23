@@ -97,7 +97,7 @@ public class TexConvImageLoader : IImageLoader
             args = new object[]
             {
                 from, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", toFolder, "-w", w, "-h", h, "-m", mipMaps,
-                "-if", "CUBIC", "-singleproc", "-nogpu"
+                "-if", "CUBIC", "-singleproc"
             };
         }
         else
@@ -105,7 +105,7 @@ public class TexConvImageLoader : IImageLoader
             args = new object[]
             {
                 from, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", toFolder, "-w", w, "-h", h,
-                "-if", "CUBIC", "-singleproc", "-nogpu"
+                "-if", "CUBIC", "-singleproc"
             };
         }
 

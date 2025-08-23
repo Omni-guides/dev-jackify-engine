@@ -68,7 +68,8 @@ namespace Wabbajack.Hashing.PHash
                     ["WINEPREFIX"] = _currentPrefix.ToString(),
                     ["STEAM_COMPAT_DATA_PATH"] = _currentPrefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
-                    ["WINEDEBUG"] = "-all"
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = ""
                 },
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
