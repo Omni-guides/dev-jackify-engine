@@ -91,38 +91,20 @@ namespace Wabbajack.Hashing.PHash
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
 
-            // Create a symlink to avoid path with spaces issues
-            var tempProtonPath = KnownFolders.EntryPoint.Parent.Parent.Combine("temp_proton");
-            if (tempProtonPath.FileExists())
-            {
-                tempProtonPath.Delete();
-            }
-            
-            // Create symlink to Proton executable
-            var symlinkProcess = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "ln",
-                    Arguments = $"-sf \"{protonWrapperPath}\" \"{tempProtonPath}\"",
-                    UseShellExecute = false,
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true
-                }
-            };
-            symlinkProcess.Start();
-            await symlinkProcess.WaitForExitAsync();
-
             // Convert Linux path to Wine path for texconv.exe
             var texconvPath = @"Tools\texconv.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint);
             var wineTexconvPath = ProtonDetector.ConvertToWinePath(texconvPath);
             
             _logger.LogDebug("Creating texconv process with Wine path: {WinePath}", wineTexconvPath);
             
+            // Build the full command with proper quoting
+            var args = new object[] { "run", wineTexconvPath }.Concat(texConvArgs);
+            var argString = string.Join(" ", args.Select(arg => arg.ToString().Contains(" ") ? $"\"{arg}\"" : arg.ToString()));
+            
             return new ProcessHelper
             {
-                Path = tempProtonPath,
-                Arguments = new object[] { "run", wineTexconvPath }.Concat(texConvArgs),
+                Path = "bash".ToAbsolutePath(),
+                Arguments = new object[] { "-c", $"\"{protonWrapperPath}\" {argString}" },
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
@@ -147,38 +129,20 @@ namespace Wabbajack.Hashing.PHash
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
 
-            // Create a symlink to avoid path with spaces issues
-            var tempProtonPath = KnownFolders.EntryPoint.Parent.Parent.Combine("temp_proton");
-            if (tempProtonPath.FileExists())
-            {
-                tempProtonPath.Delete();
-            }
-            
-            // Create symlink to Proton executable
-            var symlinkProcess = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "ln",
-                    Arguments = $"-sf \"{protonWrapperPath}\" \"{tempProtonPath}\"",
-                    UseShellExecute = false,
-                    RedirectStandardError = true,
-                    RedirectStandardOutput = true
-                }
-            };
-            symlinkProcess.Start();
-            await symlinkProcess.WaitForExitAsync();
-
             // Convert Linux path to Wine path for texdiag.exe
             var texdiagPath = @"Tools\texdiag.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint);
             var wineTexdiagPath = ProtonDetector.ConvertToWinePath(texdiagPath);
             
             _logger.LogDebug("Creating texdiag process with Wine path: {WinePath}", wineTexdiagPath);
             
+            // Build the full command with proper quoting
+            var args = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs);
+            var argString = string.Join(" ", args.Select(arg => arg.ToString().Contains(" ") ? $"\"{arg}\"" : arg.ToString()));
+            
             return new ProcessHelper
             {
-                Path = tempProtonPath,
-                Arguments = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs),
+                Path = "bash".ToAbsolutePath(),
+                Arguments = new object[] { "-c", $"\"{protonWrapperPath}\" {argString}" },
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
