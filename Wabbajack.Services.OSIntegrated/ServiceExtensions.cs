@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -121,7 +122,7 @@ public static class ServiceExtensions
         {
             EncryptedDataLocation = KnownFolders.WabbajackAppLocal.Combine("encrypted"),
             ModListsDownloadLocation = KnownFolders.EntryPoint.Combine("downloaded_mod_lists"),
-            SavedSettingsLocation = KnownFolders.WabbajackAppLocal.Combine("saved_settings"),
+            SavedSettingsLocation = GetJackifyConfigPath(),
             LogLocation = KnownFolders.LauncherAwarePath.Combine("logs"),
             ImageCacheLocation = KnownFolders.WabbajackAppLocal.Combine("image_cache")
         });
@@ -228,6 +229,19 @@ public static class ServiceExtensions
 
 
         return service;
+    }
+
+    private static AbsolutePath GetJackifyConfigPath()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            var home = Environment.GetEnvironmentVariable("HOME");
+            return (home + "/.config/jackify").ToAbsolutePath().Combine("saved_settings");
+        }
+        else
+        {
+            return KnownFolders.WabbajackAppLocal.Combine("saved_settings");
+        }
     }
     
     public static MainSettings GetAppSettings(IServiceProvider provider, string name)
