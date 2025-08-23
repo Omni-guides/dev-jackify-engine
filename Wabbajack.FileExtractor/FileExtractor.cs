@@ -476,8 +476,7 @@ public class FileExtractor
                 await spoolFile.Value.DisposeAsync();
             }
             
-            // Manually dispose the dest folder after processing is complete
-            await dest.DisposeAsync();
+            // Let the await using handle dest disposal automatically
         }
     }
     
@@ -597,8 +596,7 @@ public class FileExtractor
 
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
             
-            // Manually dispose the dest folder after processing is complete
-            await dest.DisposeAsync();
+            // Let the await using handle dest disposal automatically
         }
     }
 
