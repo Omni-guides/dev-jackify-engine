@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using Wabbajack.Common;
 using Wabbajack.Paths;
@@ -7,10 +6,8 @@ using Wabbajack.Paths.IO;
 
 namespace Wabbajack.FileExtractor.ExtractedFiles;
 
-public class ExtractedNativeFile : NativeFileStreamFactory, IExtractedFile, IDisposable
+public class ExtractedNativeFile : NativeFileStreamFactory, IExtractedFile
 {
-    private bool _disposed = false;
-
     public ExtractedNativeFile(AbsolutePath file, IPath path) : base(file, path)
     {
     }
@@ -23,25 +20,9 @@ public class ExtractedNativeFile : NativeFileStreamFactory, IExtractedFile, IDis
 
     public async ValueTask Move(AbsolutePath newPath, CancellationToken token)
     {
-        // Add debugging to see what's happening during move
-        System.Diagnostics.Debug.WriteLine($"ExtractedNativeFile.Move: {_file} -> {newPath}");
-        
         if (CanMove)
-        {
             await _file.MoveToAsync(newPath, true, token);
-            // File has been moved, mark as disposed
-            _disposed = true;
-        }
         else
-        {
             await _file.CopyToAsync(newPath, token);
-        }
-    }
-
-    public void Dispose()
-    {
-        // Do not delete the file automatically - let the TemporaryPath handle cleanup
-        // This prevents premature deletion of extracted files
-        _disposed = true;
     }
 }

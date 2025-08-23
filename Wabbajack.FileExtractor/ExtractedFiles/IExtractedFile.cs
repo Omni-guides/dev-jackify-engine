@@ -8,7 +8,7 @@ using Wabbajack.Paths;
 
 namespace Wabbajack.FileExtractor.ExtractedFiles;
 
-public interface IExtractedFile : IStreamFactory, IDisposable
+public interface IExtractedFile : IStreamFactory
 {
     public bool CanMove { get; set; }
 
@@ -27,22 +27,15 @@ public static class IExtractedFileExtensions
 {
     public static async Task<Hash> MoveHashedAsync(this IExtractedFile file, AbsolutePath destPath, CancellationToken token)
     {
-        try
+        if (file.CanMove)
         {
-            if (file.CanMove)
-            {
-                await file.Move(destPath, token);
-                return await destPath.Hash(token);
-            }
-            else
-            {
-                await using var s = await file.GetStream();
-                return await destPath.WriteAllHashedAsync(s, token, false);        
-            }
+            await file.Move(destPath, token);
+            return await destPath.Hash(token);
         }
-        finally
+        else
         {
-            file.Dispose();
+            await using var s = await file.GetStream();
+            return await destPath.WriteAllHashedAsync(s, token, false);        
         }
     }
 }
