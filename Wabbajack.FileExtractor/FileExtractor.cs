@@ -283,7 +283,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -408,6 +408,9 @@ public class FileExtractor
             if (tmpFile != null) await tmpFile.Value.DisposeAsync();
 
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
+            
+            // Manually dispose dest after all processing is complete
+            await dest.DisposeAsync();
         }
     }
     
@@ -419,7 +422,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -526,6 +529,9 @@ public class FileExtractor
             if (tmpFile != null) await tmpFile.Value.DisposeAsync();
 
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
+            
+            // Manually dispose dest after all processing is complete
+            await dest.DisposeAsync();
         }
     }
 
