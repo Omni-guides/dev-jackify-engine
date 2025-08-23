@@ -424,11 +424,18 @@ public class FileExtractor
                     var file = new ExtractedNativeFile(f);
                     _logger.LogDebug("Creating ExtractedNativeFile for: {FullPath}", f);
                     var mapResult = await mapfn(path, file);
+                    _logger.LogDebug("Map result for {Path}: {Result}", path, mapResult);
                     // Don't delete the file here - let the ExtractedNativeFile handle it during move
                     return (path, mapResult);
                 })
                 .Where(d => d.Item1 != default)
                 .ToDictionary(d => d.Item1, d => d.Item2);
+            
+            _logger.LogInformation("Final results count: {Count}", results.Count);
+            foreach (var kvp in results)
+            {
+                _logger.LogDebug("Result: {Path} -> {Value}", kvp.Key, kvp.Value);
+            }
             
 
             return results;
