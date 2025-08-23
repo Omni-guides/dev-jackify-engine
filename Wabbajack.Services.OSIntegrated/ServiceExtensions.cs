@@ -61,7 +61,7 @@ public static class ServiceExtensions
             useSpecialCharacters:false, 
             length: 8);
 
-        var tempBase = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("jackify").Combine("temp");
+        var tempBase = KnownFolders.EntryPoint.Combine("temp");
         service.AddTransient(s =>
             new TemporaryFileManager(tempBase.Combine(Environment.ProcessId + "_" + ShortId.Generate(shortIdOptions))));
 

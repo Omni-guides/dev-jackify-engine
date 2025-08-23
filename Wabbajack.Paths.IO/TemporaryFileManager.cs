@@ -15,7 +15,7 @@ public class TemporaryFileManager : IDisposable, IAsyncDisposable
         useSpecialCharacters:false,
         length: 8);
 
-    public TemporaryFileManager() : this(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("jackify").Combine("temp"))
+    public TemporaryFileManager() : this(KnownFolders.EntryPoint.Combine("temp"))
     {
     }
 

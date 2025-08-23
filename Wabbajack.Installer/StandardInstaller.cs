@@ -52,6 +52,10 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
     public static StandardInstaller Create(IServiceProvider provider, InstallerConfiguration configuration)
     {
+        // Create a TexConvImageLoader with the installer's temp directory
+        var installerTempManager = new TemporaryFileManager(configuration.Install.Combine("__temp__"));
+        var texConvImageLoader = new TexConvImageLoader(installerTempManager, provider.GetRequiredService<ILogger<TexConvImageLoader>>());
+        
         return new StandardInstaller(provider.GetRequiredService<ILogger<StandardInstaller>>(),
             configuration,
             provider.GetRequiredService<IGameLocator>(),
@@ -63,7 +67,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             provider.GetRequiredService<ParallelOptions>(),
             provider.GetRequiredService<IResource<IInstaller>>(),
             provider.GetRequiredService<Client>(),
-            provider.GetRequiredService<IImageLoader>());
+            texConvImageLoader);
     }
 
     public override async Task<InstallResult> Begin(CancellationToken token)
