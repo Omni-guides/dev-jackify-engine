@@ -40,16 +40,8 @@ public class ExtractedNativeFile : NativeFileStreamFactory, IExtractedFile, IDis
 
     public void Dispose()
     {
-        if (!_disposed && _file.FileExists())
-        {
-            try
-            {
-                _file.Delete();
-            }
-            catch
-            {
-                // Ignore cleanup errors
-            }
-        }
+        // Do not delete the file automatically - let the TemporaryPath handle cleanup
+        // This prevents premature deletion of extracted files
+        _disposed = true;
     }
 }
