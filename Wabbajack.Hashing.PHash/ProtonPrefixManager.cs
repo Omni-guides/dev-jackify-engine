@@ -97,14 +97,15 @@ namespace Wabbajack.Hashing.PHash
             
             return new ProcessHelper
             {
-                Path = "xvfb-run".ToAbsolutePath(),
-                Arguments = new object[] { "-a", "-s", "-screen 0 1024x768x24", protonWrapperPath, "run", wineTexconvPath }.Concat(texConvArgs),
+                Path = protonWrapperPath.ToAbsolutePath(),
+                Arguments = new object[] { "run", wineTexconvPath }.Concat(texConvArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
                     ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
-                    ["WINEDEBUG"] = "-all"
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = ""
                 },
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
@@ -130,14 +131,15 @@ namespace Wabbajack.Hashing.PHash
             
             return new ProcessHelper
             {
-                Path = "xvfb-run".ToAbsolutePath(),
-                Arguments = new object[] { "-a", "-s", "-screen 0 1024x768x24", protonWrapperPath, "run", wineTexdiagPath }.Concat(texDiagArgs),
+                Path = protonWrapperPath.ToAbsolutePath(),
+                Arguments = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
                     ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
-                    ["WINEDEBUG"] = "-all"
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = ""
                 },
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
