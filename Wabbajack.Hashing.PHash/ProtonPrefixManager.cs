@@ -104,7 +104,8 @@ namespace Wabbajack.Hashing.PHash
                     ["WINEPREFIX"] = prefix.ToString(),
                     ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
-                    ["WINEDEBUG"] = "-all"
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = "" // Hide Proton command windows to prevent focus stealing
                 },
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
@@ -137,7 +138,8 @@ namespace Wabbajack.Hashing.PHash
                     ["WINEPREFIX"] = prefix.ToString(),
                     ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
-                    ["WINEDEBUG"] = "-all"
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = "" // Hide Proton command windows to prevent focus stealing
                 },
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
