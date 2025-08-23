@@ -200,14 +200,30 @@ public static class AbsolutePathExtensions
         // TODO: Make this async
         var srcStr = src.ToString();
         var destStr = dest.ToString();
-        var fi = new FileInfo(srcStr);
-        if (fi.IsReadOnly)
-            fi.IsReadOnly = false;
-
-        var fid = new FileInfo(destStr);
-        if (dest.FileExists() && fid.IsReadOnly)
+        
+        // Linux-specific fix: Handle file attributes that may not be compatible
+        try
         {
-            fid.IsReadOnly = false;
+            var fi = new FileInfo(srcStr);
+            if (fi.IsReadOnly)
+                fi.IsReadOnly = false;
+        }
+        catch (ArgumentException)
+        {
+            // Ignore file attribute errors on Linux - they're not critical
+        }
+
+        try
+        {
+            var fid = new FileInfo(destStr);
+            if (dest.FileExists() && fid.IsReadOnly)
+            {
+                fid.IsReadOnly = false;
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Ignore file attribute errors on Linux - they're not critical
         }
 
         var retries = 0;

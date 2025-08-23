@@ -59,7 +59,7 @@ public class Install
             // Update wabbajack path to the downloaded file if it was empty
             if (wabbajack == AbsolutePath.Empty)
             {
-                var fileName = machineUrl.Replace("/", "_") + ".wabbajack";
+                var fileName = machineUrl.Replace("/", "_@@_") + ".wabbajack";
                 var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath();
                 var downloadDir = homeDir.Combine("Jackify", "downloaded_mod_lists");
                 downloadDir.CreateDirectory();
@@ -99,7 +99,7 @@ public class Install
         // Generate a filename from the machine URL if wabbajack path is empty
         if (wabbajack == AbsolutePath.Empty)
         {
-            var fileName = machineUrl.Replace("/", "_") + ".wabbajack";
+            var fileName = machineUrl.Replace("/", "_@@_") + ".wabbajack";
             var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath();
             var downloadDir = homeDir.Combine("Jackify", "downloaded_mod_lists");
             downloadDir.CreateDirectory();
