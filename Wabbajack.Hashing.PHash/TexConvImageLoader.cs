@@ -14,6 +14,7 @@ using Wabbajack.Common.FileSignatures;
 using Wabbajack.DTOs.Texture;
 using Wabbajack.Paths;
 using Wabbajack.Paths.IO;
+using Microsoft.Extensions.Logging;
 
 
 namespace Wabbajack.Hashing.PHash;
@@ -23,10 +24,15 @@ public class TexConvImageLoader : IImageLoader
     private readonly SignatureChecker _sigs;
     private readonly TemporaryFileManager _tempManager;
 
-    public TexConvImageLoader(TemporaryFileManager manager)
+    private readonly ProtonPrefixManager _protonManager;
+    private readonly ILogger<TexConvImageLoader> _logger;
+
+    public TexConvImageLoader(TemporaryFileManager manager, ILogger<TexConvImageLoader> logger)
     {
         _tempManager = manager;
+        _logger = logger;
         _sigs = new SignatureChecker(FileType.DDS, FileType.PNG, FileType.JPG, FileType.BMP);
+        _protonManager = new ProtonPrefixManager(logger);
     }
     
     public async ValueTask<ImageState> Load(AbsolutePath path)
@@ -81,6 +87,8 @@ public class TexConvImageLoader : IImageLoader
     }
     
     
+
+
     public async Task ConvertImage(AbsolutePath from, AbsolutePath toFolder, int w, int h, int mipMaps, DXGI_FORMAT format, Extension fileFormat)
     {
         object[] args;
@@ -89,7 +97,7 @@ public class TexConvImageLoader : IImageLoader
             args = new object[]
             {
                 from, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", toFolder, "-w", w, "-h", h, "-m", mipMaps,
-                "-if", "CUBIC", "-singleproc"
+                "-if", "CUBIC", "-singleproc", "-nogpu"
             };
         }
         else
@@ -97,20 +105,13 @@ public class TexConvImageLoader : IImageLoader
             args = new object[]
             {
                 from, "-ft", fileFormat.ToString()[1..], "-f", format, "-o", toFolder, "-w", w, "-h", h,
-                "-if", "CUBIC", "-singleproc"
+                "-if", "CUBIC", "-singleproc", "-nogpu"
             };
         }
 
-            // User isn't renaming the file, so we don't have to create a temporary folder
-        var ph = new ProcessHelper
-        {
-            Path = @"Tools\texconv.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint),
-            Arguments = args,
-            ThrowOnNonZeroExitCode = true,
-            LogError = true
-        }; 
+        // Use Proton prefix manager for texconv.exe execution
+        var ph = await _protonManager.CreateTexConvProcess(args);
         await ph.Start();
-
     }
 
     public async Task ConvertImage(Stream from, ImageState state, Extension ext, AbsolutePath to)
@@ -126,13 +127,7 @@ public class TexConvImageLoader : IImageLoader
     {
         try
         {
-            var ph = new ProcessHelper
-            {
-                Path = @"Tools\texdiag.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint),
-                Arguments = new object[] {"info", path, "-nologo"},
-                ThrowOnNonZeroExitCode = true,
-                LogError = true
-            };
+            var ph = await _protonManager.CreateTexDiagProcess(new object[] { "info", path, "-nologo" });
             var lines = new ConcurrentStack<string>();
             using var _ = ph.Output.Where(p => p.Type == ProcessHelper.StreamType.Output)
                 .Select(p => p.Line)

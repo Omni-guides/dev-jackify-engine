@@ -133,22 +133,22 @@ public static class ServiceExtensions
         // Resources
 
         service.AddAllSingleton<IResource, IResource<DownloadDispatcher>>(s =>
-            new Resource<DownloadDispatcher>("Downloads", GetResourceSettings(s, "Downloads"), s.GetRequiredService<CancellationToken>()));
+            new Resource<DownloadDispatcher>("Downloads", 4, token: s.GetRequiredService<CancellationToken>()));
 
-        service.AddAllSingleton<IResource, IResource<HttpClient>>(s => new Resource<HttpClient>("Web Requests", GetResourceSettings(s, "Web Requests"), s.GetRequiredService<CancellationToken>()));
-        service.AddAllSingleton<IResource, IResource<Context>>(s => new Resource<Context>("VFS", GetResourceSettings(s, "VFS"), s.GetRequiredService<CancellationToken>()));
+        service.AddAllSingleton<IResource, IResource<HttpClient>>(s => new Resource<HttpClient>("Web Requests", 4, token: s.GetRequiredService<CancellationToken>()));
+        service.AddAllSingleton<IResource, IResource<Context>>(s => new Resource<Context>("VFS", 4, token: s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<FileHashCache>>(s =>
-            new Resource<FileHashCache>("File Hashing", GetResourceSettings(s, "File Hashing"), s.GetRequiredService<CancellationToken>()));
+            new Resource<FileHashCache>("File Hashing", 4, token: s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<Client>>(s =>
-            new Resource<Client>("Wabbajack Client", GetResourceSettings(s, "Wabbajack Client"), s.GetRequiredService<CancellationToken>()));
+            new Resource<Client>("Wabbajack Client", 4, token: s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<FileExtractor.FileExtractor>>(s =>
-            new Resource<FileExtractor.FileExtractor>("File Extractor", GetResourceSettings(s, "File Extractor"), s.GetRequiredService<CancellationToken>()));
+            new Resource<FileExtractor.FileExtractor>("File Extractor", 4, token: s.GetRequiredService<CancellationToken>()));
 
         service.AddAllSingleton<IResource, IResource<ACompiler>>(s =>
-            new Resource<ACompiler>("Compiler", GetResourceSettings(s, "Compiler"), s.GetRequiredService<CancellationToken>()));
+            new Resource<ACompiler>("Compiler", 4, token: s.GetRequiredService<CancellationToken>()));
 
         service.AddAllSingleton<IResource, IResource<IInstaller>>(s =>
-            new Resource<IInstaller>("Installer", GetResourceSettings(s, "Installer"), s.GetRequiredService<CancellationToken>()));
+            new Resource<IInstaller>("Installer", 4, token: s.GetRequiredService<CancellationToken>()));
 
         service.AddAllSingleton<IResource, IResource<IUserInterventionHandler>>(s =>
             new Resource<IUserInterventionHandler>("User Intervention", 1, token: s.GetRequiredService<CancellationToken>()));
@@ -194,11 +194,14 @@ public static class ServiceExtensions
         else
             service.AddAllSingleton<IGameLocator, GameLocator>();
 
-        // ImageLoader
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            service.AddSingleton<IImageLoader, TexConvImageLoader>();
-        else
-            service.AddSingleton<IImageLoader, CrossPlatformImageLoader>();
+        // Proton detection for Linux
+        service.AddSingleton<ProtonDetector>();
+        
+        // ImageLoader - Use TexConvImageLoader with Proton for Linux compatibility
+        service.AddScoped<IImageLoader>(s => new TexConvImageLoader(
+            s.GetRequiredService<TemporaryFileManager>(),
+            s.GetRequiredService<ILogger<TexConvImageLoader>>()
+        ));
 
         // Installer/Compiler Configuration
         service.AddScoped<InstallerConfiguration>();

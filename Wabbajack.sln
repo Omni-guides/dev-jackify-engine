@@ -35,7 +35,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wabbajack.Downloaders.Nexus
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wabbajack.Networking.Http", "Wabbajack.Networking.Http\Wabbajack.Networking.Http.csproj", "{7BE598E4-8640-4188-AC19-7E929E1B324D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wabbajack.CLI", "Wabbajack.CLI\Wabbajack.CLI.csproj", "{3FE8C32C-C5E5-4EF4-85F7-84C3785378F9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "jackify-engine", "jackify-engine\jackify-engine.csproj", "{3FE8C32C-C5E5-4EF4-85F7-84C3785378F9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wabbajack.Downloaders.GoogleDrive", "Wabbajack.Downloaders.GoogleDrive\Wabbajack.Downloaders.GoogleDrive.csproj", "{E5E19726-C831-4FB3-BB52-B3FD9360F209}"
 EndProject

@@ -26,6 +26,8 @@ public class ProcessHelper
 
     public bool ThrowOnNonZeroExitCode { get; set; } = false;
 
+    public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
+
     public async Task<int> Start()
     {
         var args = Arguments.Select(arg =>
@@ -47,6 +49,12 @@ public class ProcessHelper
             UseShellExecute = false,
             CreateNoWindow = true
         };
+
+        // Set environment variables if provided
+        foreach (var kvp in EnvironmentVariables)
+        {
+            info.EnvironmentVariables[kvp.Key] = kvp.Value;
+        }
         var finished = new TaskCompletionSource<int>();
 
         var p = new Process
