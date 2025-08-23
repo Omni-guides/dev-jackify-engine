@@ -283,7 +283,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -339,7 +339,7 @@ public class FileExtractor
             }
             else
             {
-                process.Arguments = ["x", "-bsp1", "-y", $"-o\"{dest}\"", source, "-mmt=off"];
+                process.Arguments = ["x", "-bsp1", "-y", "-r", $"-o\"{dest}\"", source, "-mmt=off"];
             }
 
             _logger.LogTrace("{prog} {args}", process.Path, process.Arguments);
@@ -371,6 +371,25 @@ public class FileExtractor
 
             var exitCode = await process.Start();
 
+            // Add debugging to see what files were actually extracted
+            _logger.LogInformation("7zip extraction completed with exit code: {ExitCode}", exitCode);
+            _logger.LogInformation("Extraction destination: {DestPath}", dest.Path);
+            
+            // Log all extracted files for debugging
+            var extractedFiles = dest.Path.EnumerateFiles().ToList();
+            _logger.LogInformation("Extracted {FileCount} files:", extractedFiles.Count);
+            foreach (var file in extractedFiles.Take(10)) // Log first 10 files
+            {
+                _logger.LogInformation("  - {FileName}", file.FileName);
+            }
+            if (extractedFiles.Count > 10)
+            {
+                _logger.LogInformation("  ... and {MoreCount} more files", extractedFiles.Count - 10);
+            }
+            
+            // Also log all directories and files recursively
+            _logger.LogInformation("Full directory structure:");
+            LogDirectoryStructure(dest.Path, "");
 
             /*
             if (exitCode != 0)
@@ -388,8 +407,22 @@ public class FileExtractor
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
-                    if (!shouldExtract(path)) return ((RelativePath, T)) default;
+                    _logger.LogDebug("Processing extracted file: {FullPath} -> {RelativePath}", f, path);
+                    
+                    // Check if file still exists before processing
+                    if (!f.FileExists())
+                    {
+                        _logger.LogWarning("File no longer exists during processing: {FullPath}", f);
+                        return ((RelativePath, T)) default;
+                    }
+                    
+                    if (!shouldExtract(path)) 
+                    {
+                        _logger.LogDebug("Skipping file (shouldExtract=false): {Path}", path);
+                        return ((RelativePath, T)) default;
+                    }
                     var file = new ExtractedNativeFile(f);
+                    _logger.LogDebug("Creating ExtractedNativeFile for: {FullPath}", f);
                     var mapResult = await mapfn(path, file);
                     // Don't delete the file here - let the ExtractedNativeFile handle it during move
                     return (path, mapResult);
@@ -407,6 +440,9 @@ public class FileExtractor
             if (tmpFile != null) await tmpFile.Value.DisposeAsync();
 
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
+            
+            // Manually dispose the dest folder after processing is complete
+            await dest.DisposeAsync();
         }
     }
     
@@ -418,7 +454,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        await using var dest = _manager.CreateFolder();
+        var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -510,7 +546,7 @@ public class FileExtractor
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);
-                    f.Delete();
+                    // Don't delete the file here - let the ExtractedNativeFile handle it during move
                     return (path, mapResult);
                 })
                 .Where(d => d.Item1 != default)
@@ -525,6 +561,9 @@ public class FileExtractor
             if (tmpFile != null) await tmpFile.Value.DisposeAsync();
 
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
+            
+            // Manually dispose the dest folder after processing is complete
+            await dest.DisposeAsync();
         }
     }
 
@@ -540,5 +579,26 @@ public class FileExtractor
             await abs.WriteAllAsync(stream, token);
             return 0;
         }, token, progressFunction: updateProgress);
+    }
+    
+    private void LogDirectoryStructure(AbsolutePath path, string indent)
+    {
+        try
+        {
+            foreach (var file in path.EnumerateFiles())
+            {
+                _logger.LogInformation("{Indent}FILE: {FileName}", indent, file.FileName);
+            }
+            
+            foreach (var dir in path.EnumerateDirectories())
+            {
+                _logger.LogInformation("{Indent}DIR: {DirName}", indent, dir.FileName);
+                LogDirectoryStructure(dir, indent + "  ");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error logging directory structure for {Path}", path);
+        }
     }
 }

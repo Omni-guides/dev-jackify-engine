@@ -23,6 +23,9 @@ public class ExtractedNativeFile : NativeFileStreamFactory, IExtractedFile, IDis
 
     public async ValueTask Move(AbsolutePath newPath, CancellationToken token)
     {
+        // Add debugging to see what's happening during move
+        System.Diagnostics.Debug.WriteLine($"ExtractedNativeFile.Move: {_file} -> {newPath}");
+        
         if (CanMove)
         {
             await _file.MoveToAsync(newPath, true, token);
