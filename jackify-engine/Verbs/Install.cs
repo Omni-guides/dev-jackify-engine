@@ -55,6 +55,13 @@ public class Install
         {
             if (!await DownloadMachineUrl(machineUrl, wabbajack, token))
                 return 1;
+            
+            // Update wabbajack path to the downloaded file if it was empty
+            if (wabbajack == AbsolutePath.Empty)
+            {
+                var fileName = machineUrl.Replace("/", "_") + ".wabbajack";
+                wabbajack = KnownFolders.EntryPoint.Combine(fileName);
+            }
         }
 
         var modlist = await StandardInstaller.LoadFromFile(_dtos, wabbajack);
@@ -84,6 +91,13 @@ public class Install
         {
             _logger.LogInformation("Couldn't find list {MachineUrl}", machineUrl);
             return false;
+        }
+        
+        // Generate a filename from the machine URL if wabbajack path is empty
+        if (wabbajack == AbsolutePath.Empty)
+        {
+            var fileName = machineUrl.Replace("/", "_") + ".wabbajack";
+            wabbajack = KnownFolders.EntryPoint.Combine(fileName);
         }
         
         if (wabbajack.FileExists() && await _cache.FileHashCachedAsync(wabbajack, token) == list.DownloadMetadata!.Hash)
