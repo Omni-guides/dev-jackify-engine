@@ -60,7 +60,10 @@ public class Install
             if (wabbajack == AbsolutePath.Empty)
             {
                 var fileName = machineUrl.Replace("/", "_") + ".wabbajack";
-                wabbajack = KnownFolders.EntryPoint.Combine(fileName);
+                var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath();
+                var downloadDir = homeDir.Combine("Jackify", "downloaded_mod_lists");
+                downloadDir.CreateDirectory();
+                wabbajack = downloadDir.Combine(fileName);
             }
         }
 
@@ -97,7 +100,10 @@ public class Install
         if (wabbajack == AbsolutePath.Empty)
         {
             var fileName = machineUrl.Replace("/", "_") + ".wabbajack";
-            wabbajack = KnownFolders.EntryPoint.Combine(fileName);
+            var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath();
+            var downloadDir = homeDir.Combine("Jackify", "downloaded_mod_lists");
+            downloadDir.CreateDirectory();
+            wabbajack = downloadDir.Combine(fileName);
         }
         
         if (wabbajack.FileExists() && await _cache.FileHashCachedAsync(wabbajack, token) == list.DownloadMetadata!.Hash)
