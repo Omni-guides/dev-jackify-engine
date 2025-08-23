@@ -392,6 +392,14 @@ public class FileExtractor
             // Also log all directories and files recursively
             _logger.LogInformation("Full directory structure:");
             LogDirectoryStructure(destPath, "");
+            
+            // Check if files still exist right after extraction
+            _logger.LogInformation("Checking file existence immediately after extraction:");
+            foreach (var file in extractedFiles.Take(5))
+            {
+                var exists = file.FileExists();
+                _logger.LogInformation("  - {File}: {Exists}", file, exists);
+            }
 
             /*
             if (exitCode != 0)
@@ -454,15 +462,25 @@ public class FileExtractor
         }
         finally
         {
+            _logger.LogInformation("FINALLY BLOCK EXECUTING - Cleaning up resources");
             job.Dispose();
             
-            if (tmpFile != null) await tmpFile.Value.DisposeAsync();
+            if (tmpFile != null) 
+            {
+                _logger.LogInformation("Disposing tmpFile: {Path}", tmpFile.Value.Path);
+                await tmpFile.Value.DisposeAsync();
+            }
 
-            if (spoolFile != null) await spoolFile.Value.DisposeAsync();
+            if (spoolFile != null) 
+            {
+                _logger.LogInformation("Disposing spoolFile: {Path}", spoolFile.Value.Path);
+                await spoolFile.Value.DisposeAsync();
+            }
             
             // Manually delete the dest folder after processing is complete
             try
             {
+                _logger.LogInformation("Deleting destPath: {Path}", destPath);
                 destPath.DeleteDirectory();
             }
             catch (Exception ex)
