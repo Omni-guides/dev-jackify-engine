@@ -283,8 +283,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        var destPath = KnownFolders.EntryPoint.Parent.Parent.Combine("temp_extract").Combine(Guid.NewGuid().ToString());
-        destPath.CreateDirectory();
+        await using var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -335,12 +334,12 @@ public class FileExtractor
                     token);
                 process.Arguments =
                 [
-                    "x", "-bsp1", "-y", $"-o\"{destPath}\"", source, $"@\"{tmpFile.Value.ToString()}\"", "-mmt=off"
+                    "x", "-bsp1", "-y", $"-o\"{dest}\"", source, $"@\"{tmpFile.Value.ToString()}\"", "-mmt=off"
                 ];
             }
             else
             {
-                process.Arguments = ["x", "-bsp1", "-y", "-r", $"-o\"{destPath}\"", source, "-mmt=off"];
+                process.Arguments = ["x", "-bsp1", "-y", "-r", $"-o\"{dest}\"", source, "-mmt=off"];
             }
 
             _logger.LogTrace("{prog} {args}", process.Path, process.Arguments);
@@ -374,14 +373,14 @@ public class FileExtractor
 
             // Add debugging to see what files were actually extracted
             _logger.LogInformation("7zip extraction completed with exit code: {ExitCode}", exitCode);
-            _logger.LogInformation("Extraction destination: {DestPath}", destPath);
+            _logger.LogInformation("Extraction destination: {DestPath}", dest.Path);
             
             // Log all extracted files for debugging
-            var extractedFiles = destPath.EnumerateFiles(recursive: true).ToList();
+            var extractedFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
             _logger.LogInformation("Extracted {FileCount} files:", extractedFiles.Count);
             foreach (var file in extractedFiles.Take(10)) // Log first 10 files
             {
-                var relativePath = file.RelativeTo(destPath);
+                var relativePath = file.RelativeTo(dest.Path);
                 _logger.LogInformation("  - {RelativePath}", relativePath);
             }
             if (extractedFiles.Count > 10)
@@ -391,7 +390,7 @@ public class FileExtractor
             
             // Also log all directories and files recursively
             _logger.LogInformation("Full directory structure:");
-            LogDirectoryStructure(destPath, "");
+            LogDirectoryStructure(dest.Path, "");
             
             // Check if files still exist right after extraction
             _logger.LogInformation("Checking file existence immediately after extraction:");
@@ -416,17 +415,17 @@ public class FileExtractor
             
             // Check if files exist right before processing loop
             _logger.LogInformation("Checking file existence before processing loop:");
-            var allFiles = destPath.EnumerateFiles(recursive: true).ToList();
+            var allFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
             foreach (var file in allFiles)
             {
                 var exists = file.FileExists();
                 _logger.LogInformation("  - {File}: {Exists}", file, exists);
             }
             
-            var results = await destPath.EnumerateFiles(recursive: true)
+            var results = await dest.Path.EnumerateFiles(recursive: true)
                 .SelectAsync(async f =>
                 {
-                    var path = f.RelativeTo(destPath);
+                    var path = f.RelativeTo(dest.Path);
                     _logger.LogDebug("Processing extracted file: {FullPath} -> {RelativePath}", f, path);
                     
                     // Check if file still exists before processing
@@ -477,16 +476,8 @@ public class FileExtractor
                 await spoolFile.Value.DisposeAsync();
             }
             
-            // Manually delete the dest folder after processing is complete
-            try
-            {
-                _logger.LogInformation("Deleting destPath: {Path}", destPath);
-                destPath.DeleteDirectory();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to delete temporary extraction directory: {Path}", destPath);
-            }
+            // Manually dispose the dest folder after processing is complete
+            await dest.DisposeAsync();
         }
     }
     
