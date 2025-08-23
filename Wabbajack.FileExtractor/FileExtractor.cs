@@ -408,8 +408,7 @@ public class FileExtractor
 
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
             
-            // Manually dispose dest after all processing is complete
-            await dest.DisposeAsync();
+            // Don't dispose dest - let it persist for the move operation
         }
     }
     
