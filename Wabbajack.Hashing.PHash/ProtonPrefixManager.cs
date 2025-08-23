@@ -97,14 +97,10 @@ namespace Wabbajack.Hashing.PHash
             
             _logger.LogDebug("Creating texconv process with Wine path: {WinePath}", wineTexconvPath);
             
-            // Build the full command with proper quoting
-            var args = new object[] { "run", wineTexconvPath }.Concat(texConvArgs);
-            var argString = string.Join(" ", args.Select(arg => arg.ToString().Contains(" ") ? $"\"{arg}\"" : arg.ToString()));
-            
             return new ProcessHelper
             {
-                Path = "bash".ToAbsolutePath(),
-                Arguments = new object[] { "-c", $"\"{protonWrapperPath}\" {argString}" },
+                Path = protonWrapperPath.ToAbsolutePath(),
+                Arguments = new object[] { "run", wineTexconvPath }.Concat(texConvArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
@@ -135,14 +131,10 @@ namespace Wabbajack.Hashing.PHash
             
             _logger.LogDebug("Creating texdiag process with Wine path: {WinePath}", wineTexdiagPath);
             
-            // Build the full command with proper quoting
-            var args = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs);
-            var argString = string.Join(" ", args.Select(arg => arg.ToString().Contains(" ") ? $"\"{arg}\"" : arg.ToString()));
-            
             return new ProcessHelper
             {
-                Path = "bash".ToAbsolutePath(),
-                Arguments = new object[] { "-c", $"\"{protonWrapperPath}\" {argString}" },
+                Path = protonWrapperPath.ToAbsolutePath(),
+                Arguments = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
