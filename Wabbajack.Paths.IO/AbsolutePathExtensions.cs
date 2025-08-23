@@ -231,19 +231,8 @@ public static class AbsolutePathExtensions
         {
             try
             {
-                // Check if source file exists before attempting move
-                if (!File.Exists(srcStr))
-                {
-                    throw new FileNotFoundException($"Source file not found: {srcStr}");
-                }
-                
                 File.Move(srcStr, destStr, overwrite);
                 return;
-            }
-            catch (FileNotFoundException ex)
-            {
-                // If source file doesn't exist, this is a critical error that shouldn't be retried
-                throw new FileNotFoundException($"Source file not found during move operation: {srcStr}", ex);
             }
             catch (Exception)
             {
