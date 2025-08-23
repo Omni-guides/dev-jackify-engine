@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Wabbajack.Common;
 using Wabbajack.DTOs.Streams;
@@ -7,7 +8,7 @@ using Wabbajack.Paths;
 
 namespace Wabbajack.FileExtractor.ExtractedFiles;
 
-public interface IExtractedFile : IStreamFactory
+public interface IExtractedFile : IStreamFactory, IDisposable
 {
     public bool CanMove { get; set; }
 
@@ -26,15 +27,22 @@ public static class IExtractedFileExtensions
 {
     public static async Task<Hash> MoveHashedAsync(this IExtractedFile file, AbsolutePath destPath, CancellationToken token)
     {
-        if (file.CanMove)
+        try
         {
-            await file.Move(destPath, token);
-            return await destPath.Hash(token);
+            if (file.CanMove)
+            {
+                await file.Move(destPath, token);
+                return await destPath.Hash(token);
+            }
+            else
+            {
+                await using var s = await file.GetStream();
+                return await destPath.WriteAllHashedAsync(s, token, false);        
+            }
         }
-        else
+        finally
         {
-            await using var s = await file.GetStream();
-            return await destPath.WriteAllHashedAsync(s, token, false);        
+            file.Dispose();
         }
     }
 }

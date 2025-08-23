@@ -11,6 +11,7 @@ namespace Wabbajack.FileExtractor.ExtractedFiles;
 public class ExtractedMemoryFile : IExtractedFile
 {
     private readonly IStreamFactory _factory;
+    private bool _disposed = false;
 
     public ExtractedMemoryFile(IStreamFactory factory)
     {
@@ -30,7 +31,17 @@ public class ExtractedMemoryFile : IExtractedFile
     {
         await using var stream = await _factory.GetStream();
         await newPath.WriteAllAsync(stream, token);
+        _disposed = true;
     }
 
     public bool CanMove { get; set; } = true;
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _disposed = true;
+            // Memory files don't need cleanup
+        }
+    }
 }

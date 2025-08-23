@@ -180,6 +180,7 @@ public class FileExtractor
         private readonly long _start;
         private readonly long _length;
         private readonly RelativePath _name;
+        private bool _disposed = false;
 
         public BTARExtractedFile(IStreamFactory parent, RelativePath name, AsyncBinaryReader rdr, long startingPosition, long length)
         {
@@ -205,6 +206,16 @@ public class FileExtractor
             await using var output = newPath.Open(FileMode.Create, FileAccess.Read, FileShare.Read);
             _rdr.Position = _start;
             await _rdr.BaseStream.CopyToLimitAsync(output, (int)_length, token);
+            _disposed = true;
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                // BTAR files are memory-based, no cleanup needed
+            }
         }
     }
 
@@ -380,7 +391,7 @@ public class FileExtractor
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);
-                    f.Delete();
+                    // Don't delete the file here - let the ExtractedNativeFile handle it during move
                     return (path, mapResult);
                 })
                 .Where(d => d.Item1 != default)
