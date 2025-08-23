@@ -376,11 +376,12 @@ public class FileExtractor
             _logger.LogInformation("Extraction destination: {DestPath}", dest.Path);
             
             // Log all extracted files for debugging
-            var extractedFiles = dest.Path.EnumerateFiles().ToList();
+            var extractedFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
             _logger.LogInformation("Extracted {FileCount} files:", extractedFiles.Count);
             foreach (var file in extractedFiles.Take(10)) // Log first 10 files
             {
-                _logger.LogInformation("  - {FileName}", file.FileName);
+                var relativePath = file.RelativeTo(dest.Path);
+                _logger.LogInformation("  - {RelativePath}", relativePath);
             }
             if (extractedFiles.Count > 10)
             {
@@ -403,6 +404,16 @@ public class FileExtractor
 
             
             job.Dispose();
+            
+            // Check if files exist right before processing loop
+            _logger.LogInformation("Checking file existence before processing loop:");
+            var allFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
+            foreach (var file in allFiles)
+            {
+                var exists = file.FileExists();
+                _logger.LogInformation("  - {File}: {Exists}", file, exists);
+            }
+            
             var results = await dest.Path.EnumerateFiles(recursive: true)
                 .SelectAsync(async f =>
                 {
@@ -592,9 +603,10 @@ public class FileExtractor
     {
         try
         {
-            foreach (var file in path.EnumerateFiles())
+            foreach (var file in path.EnumerateFiles(recursive: true))
             {
-                _logger.LogInformation("{Indent}FILE: {FileName}", indent, file.FileName);
+                var relativePath = file.RelativeTo(path);
+                _logger.LogInformation("{Indent}FILE: {RelativePath}", indent, relativePath);
             }
             
             foreach (var dir in path.EnumerateDirectories())
