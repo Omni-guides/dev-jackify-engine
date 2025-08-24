@@ -71,7 +71,6 @@ public class Install
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         _logger.LogInformation("jackify-engine v{Version}: Minimal Linux-native modlist installer for Jackify", version);
         _logger.LogInformation("---------------------------------------------------------------");
-        _logger.LogInformation("For help, use: jackify-engine --help");
 
         var modlist = await StandardInstaller.LoadFromFile(_dtos, wabbajack);
 
