@@ -385,7 +385,6 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             streams.Do(s => s.Dispose());
 
             await FileHashCache.FileHashWriteCache(outPath, bsa.Hash);
-            sourceDir.DeleteDirectory();
 
             _logger.LogInformation("{Duration} Verifying {bsaTo}", duration, bsa.To);
             var reader = await BSADispatch.Open(outPath);
