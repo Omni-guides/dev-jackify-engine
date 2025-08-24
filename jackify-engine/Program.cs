@@ -79,7 +79,7 @@ internal class Program
 
         var consoleTarget = new ConsoleTarget("console")
         {
-            Layout = "${processtime} [${level:uppercase=true}] ${message:withexception=true}",
+            Layout = "${message:withexception=true}",
         };
         
         config.AddRuleForAllLevels(fileTarget);

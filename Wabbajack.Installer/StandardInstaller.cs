@@ -112,7 +112,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         _logger.LogInformation("[{Timestamp}] Install Folder: {InstallFolder}", timestamp, _configuration.Install);
         _logger.LogInformation("[{Timestamp}] Downloads Folder: {DownloadFolder}", timestamp, _configuration.Downloads);
         _logger.LogInformation("[{Timestamp}] Game Folder: {GameFolder}", timestamp, _configuration.GameFolder);
-        _logger.LogInformation("[{Timestamp}] Wabbajack Folder: {WabbajackFolder}", timestamp, KnownFolders.EntryPoint);
+        _logger.LogInformation("[{Timestamp}] Engine Folder: {WabbajackFolder}", timestamp, KnownFolders.EntryPoint);
 
         _configuration.Install.CreateDirectory();
         _configuration.Downloads.CreateDirectory();
