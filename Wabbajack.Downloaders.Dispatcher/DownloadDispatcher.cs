@@ -58,6 +58,30 @@ public class DownloadDispatcher
         return hash;
     }
 
+    public async Task<Hash> Download(Archive a, AbsolutePath dest, CancellationToken token, Action<long, long>? progressCallback, bool? proxy = null)
+    {
+        if (token.IsCancellationRequested)
+        {
+            return new Hash();
+        }
+
+        using var downloadScope = _logger.BeginScope("Downloading {Name}", a.Name);
+        using var job = await _limiter.Begin("Downloading " + a.Name, a.Size, token);
+        
+        if (progressCallback != null)
+        {
+            job.OnUpdate += (_, progressInfo) =>
+            {
+                var (_, processed) = progressInfo;
+                progressCallback(processed, a.Size);
+            };
+        }
+        
+        var hash = await Download(a, dest, job, token, proxy);
+        _logger.LogInformation("Finished downloading {name}. Hash: {hash}; Size: {size}/{expectedSize}", a.Name, hash, dest.Size().ToFileSizeString(), a.Size.ToFileSizeString());
+        return hash;
+    }
+
     public async Task<Archive> MaybeProxy(Archive a, CancellationToken token)
     {
         if (!UseProxy) return a;

@@ -113,14 +113,28 @@ public class Install
         }
 
         var state = _dispatcher.Parse(new Uri(list.Links.Download));
-
-        await _dispatcher.Download(new Archive
+        var archive = new Archive
         {
             Name = wabbajack.FileName.ToString(),
             Hash = list.DownloadMetadata!.Hash,
             Size = list.DownloadMetadata.Size,
             State = state!
-        }, wabbajack, token);
+        };
+
+        // Set up progress reporting
+        var startTime = DateTime.UtcNow;
+        Action<long, long> progressCallback = (processed, total) =>
+        {
+            var elapsed = DateTime.UtcNow - startTime;
+            var speedMBps = elapsed.TotalSeconds > 0 ? (processed / 1024.0 / 1024.0) / elapsed.TotalSeconds : 0;
+            var totalMB = total / 1024.0 / 1024.0;
+            var processedMB = processed / 1024.0 / 1024.0;
+            
+            _logger.LogInformation("Downloading {FileName} ({ProcessedMB:F1}/{TotalMB:F1}MB) - {SpeedMBps:F1}MB/s", 
+                archive.Name, processedMB, totalMB, speedMBps);
+        };
+
+        await _dispatcher.Download(archive, wabbajack, token, progressCallback);
 
         return true;
     }
