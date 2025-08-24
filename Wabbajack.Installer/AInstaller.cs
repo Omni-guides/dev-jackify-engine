@@ -116,7 +116,11 @@ public abstract class AInstaller<T>
         _statusText = statusText;
         _statusCategory = statusCategory;
         _statusFormatter = formatter ?? (x => x.ToString());
-        _logger.LogInformation("Next Step: {Step}", statusText);
+        
+        // Format: [00:00:00] === Preparing - Configuring Installer ===
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        var sectionHeader = $"[{timestamp}] === {statusCategory} - {statusText} ===";
+        _logger.LogInformation(sectionHeader);
 
         OnStatusUpdate?.Invoke(new StatusUpdate(statusCategory, statusText,
             Percent.FactoryPutInRange(_currentStep, MaxSteps), Percent.Zero, _currentStep));
@@ -209,7 +213,8 @@ public abstract class AInstaller<T>
     public Task BuildFolderStructure()
     {
         NextStep(Consts.StepPreparing, "Building Folder Structure", 0);
-        _logger.LogInformation("Building Folder Structure");
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Building Folder Structure", timestamp);
         ModList.Directives
             .Where(d => d.To.Depth > 1)
             .Select(d => _configuration.Install.Combine(d.To.Parent))

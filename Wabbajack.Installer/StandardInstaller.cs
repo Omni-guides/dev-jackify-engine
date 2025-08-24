@@ -73,10 +73,11 @@ public class StandardInstaller : AInstaller<StandardInstaller>
     public override async Task<InstallResult> Begin(CancellationToken token)
     {
         if (token.IsCancellationRequested) return InstallResult.Cancelled;
-        _logger.LogInformation("Installing: {Name} - {Version}", _configuration.ModList.Name, _configuration.ModList.Version);
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Installing: {Name} - {Version}", timestamp, _configuration.ModList.Name, _configuration.ModList.Version);
         await _wjClient.SendMetric(MetricNames.BeginInstall, ModList.Name);
         NextStep(Consts.StepPreparing, "Configuring Installer", 0);
-        _logger.LogInformation("Configuring Processor");
+        _logger.LogInformation("[{Timestamp}] Configuring Processor", timestamp);
 
         if (_configuration.GameFolder == default)
             _configuration.GameFolder = _gameLocator.GameLocation(_configuration.Game);
@@ -108,10 +109,10 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         }
 
 
-        _logger.LogInformation("Install Folder: {InstallFolder}", _configuration.Install);
-        _logger.LogInformation("Downloads Folder: {DownloadFolder}", _configuration.Downloads);
-        _logger.LogInformation("Game Folder: {GameFolder}", _configuration.GameFolder);
-        _logger.LogInformation("Wabbajack Folder: {WabbajackFolder}", KnownFolders.EntryPoint);
+        _logger.LogInformation("[{Timestamp}] Install Folder: {InstallFolder}", timestamp, _configuration.Install);
+        _logger.LogInformation("[{Timestamp}] Downloads Folder: {DownloadFolder}", timestamp, _configuration.Downloads);
+        _logger.LogInformation("[{Timestamp}] Game Folder: {GameFolder}", timestamp, _configuration.GameFolder);
+        _logger.LogInformation("[{Timestamp}] Wabbajack Folder: {WabbajackFolder}", timestamp, KnownFolders.EntryPoint);
 
         _configuration.Install.CreateDirectory();
         _configuration.Downloads.CreateDirectory();
