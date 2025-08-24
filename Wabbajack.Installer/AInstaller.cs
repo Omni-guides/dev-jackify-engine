@@ -221,8 +221,20 @@ public abstract class AInstaller<T>
     public async Task InstallArchives(CancellationToken token)
     {
         NextStep(Consts.StepInstalling, "Installing files", ModList.Directives.Sum(d => d.Size), x => x.ToFileSizeString());
-        var grouped = ModList.Directives
-            .OfType<FromArchive>()
+        
+        // Count total files and texture files for progress tracking
+        var allDirectives = ModList.Directives.OfType<FromArchive>().ToList();
+        var textureDirectives = allDirectives.OfType<TransformedTexture>().ToList();
+        var totalFiles = allDirectives.Count;
+        var totalTextures = textureDirectives.Count;
+        
+        // Progress tracking variables
+        var processedFiles = 0;
+        var processedTextures = 0;
+        var processedSize = 0L;
+        var totalSize = allDirectives.Sum(d => d.Size);
+        
+        var grouped = allDirectives
             .Select(a => {
                 try
                 {
@@ -249,7 +261,11 @@ public abstract class AInstaller<T>
             {
                 if (token.IsCancellationRequested) return;
                 var file = directive.Directive;
-                UpdateProgress(file.Size);
+                
+                // Update progress tracking
+                Interlocked.Increment(ref processedFiles);
+                Interlocked.Add(ref processedSize, file.Size);
+                
                 var destPath = file.To.RelativeTo(_configuration.Install);
                 switch (file)
                 {
@@ -266,17 +282,24 @@ public abstract class AInstaller<T>
                     }
                         break;
 
-
                     case TransformedTexture tt:
                     {
                         await using var s = await sf.GetStream();
                         await using var of = destPath.Open(FileMode.Create, FileAccess.Write);
+                        
+                        // Update texture progress before conversion
+                        Interlocked.Increment(ref processedTextures);
+                        
+                        // Log combined progress
+                        var fileSizeInfo = $"({processedSize.ToFileSizeString()}/{totalSize.ToFileSizeString()})";
+                        _logger.LogInformation("Extracting Files ({ProcessedFiles}/{TotalFiles}) - Converting Textures ({ProcessedTextures}/{TotalTextures})", 
+                            processedFiles, totalFiles, processedTextures, totalTextures);
+                        
                         _logger.LogInformation("Recompressing {Filename}", tt.To.FileName);
                         await ImageLoader.Recompress(s, tt.ImageState.Width, tt.ImageState.Height, tt.ImageState.MipLevels, tt.ImageState.Format,
                             of, token);
                     }
                         break;
-
 
                     case FromArchive _:
                         if (grouped[vf].Count() == 1)
