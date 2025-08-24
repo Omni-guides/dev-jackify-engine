@@ -397,20 +397,11 @@ public class FileExtractor
             // Add small delay to ensure file system sync after extraction
             await Task.Delay(100, token);
             
-            // Debug: List actual extracted files
-            _logger.LogInformation("DEBUG: Listing actual extracted files in {TempDir}", dest.Path);
-            var actualFiles = dest.Path.EnumerateFiles(recursive: true).ToList();
-            foreach (var file in actualFiles.Take(10)) // Log first 10 files
-            {
-                _logger.LogInformation("DEBUG: Actual extracted file: {File}", file);
-            }
-            
             job.Dispose();
             var results = await dest.Path.EnumerateFiles()
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
-                    // Debug logging removed
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);

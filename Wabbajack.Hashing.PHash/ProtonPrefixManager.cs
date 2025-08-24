@@ -90,8 +90,6 @@ namespace Wabbajack.Hashing.PHash
             {
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
-
-            _logger.LogDebug("Creating texconv process with Proton path: {ProtonPath}", protonWrapperPath);
             
             return new ProcessHelper
             {
@@ -121,8 +119,6 @@ namespace Wabbajack.Hashing.PHash
             {
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
-
-            _logger.LogDebug("Creating texdiag process with Proton path: {ProtonPath}", protonWrapperPath);
             
             return new ProcessHelper
             {
