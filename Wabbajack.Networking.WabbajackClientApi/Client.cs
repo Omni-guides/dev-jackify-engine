@@ -83,11 +83,11 @@ public class Client
 
     public async Task SendMetric(string action, string subject, bool rebound = true)
     {
-        if (!_inited)
+                if (!_inited)
         {
             // Note: This is called before installation starts, so we can't use duration here
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Init Client: {Id}", timestamp, (await _token.Get())?.MetricsKey);
+            var timestamp = DateTime.Now.ToString("HH:mm:ss");
+            _logger.LogDebug("[{Timestamp}] Init Client: {Id}", timestamp, (await _token.Get())?.MetricsKey);
             _inited = true;
         }
         

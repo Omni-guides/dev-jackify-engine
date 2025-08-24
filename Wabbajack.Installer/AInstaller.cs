@@ -298,7 +298,29 @@ public abstract class AInstaller<T>
                 // Update single-line progress for file processing with file sizes
                 var processedSizeMB = processedSize / 1024.0 / 1024.0;
                 var totalSizeMB = totalSize / 1024.0 / 1024.0;
-                var fileProgressMessage = $"Installing files {processedFiles}/{totalFiles} ({processedSizeMB:F1}MB/{totalSizeMB:F1}MB) - Converting textures: {processedTextures}/{totalTextures}";
+                
+                // Use GB for sizes >= 1GB, MB otherwise
+                string processedSizeStr, totalSizeStr;
+                if (processedSizeMB >= 1024.0)
+                {
+                    processedSizeStr = $"{processedSizeMB / 1024.0:F1}GB";
+                }
+                else
+                {
+                    processedSizeStr = $"{processedSizeMB:F1}MB";
+                }
+                
+                if (totalSizeMB >= 1024.0)
+                {
+                    totalSizeStr = $"{totalSizeMB / 1024.0:F1}GB";
+                }
+                else
+                {
+                    totalSizeStr = $"{totalSizeMB:F1}MB";
+                }
+                
+                var duration = GetInstallationDuration();
+                var fileProgressMessage = $"{duration} Installing files {processedFiles}/{totalFiles} ({processedSizeStr}/{totalSizeStr}) - Converting textures: {processedTextures}/{totalTextures}";
                 Console.Write($"\r{fileProgressMessage}");
                 
                 var destPath = file.To.RelativeTo(_configuration.Install);
@@ -328,7 +350,28 @@ public abstract class AInstaller<T>
                         // Update single-line progress (overwrites the same line) with file sizes
                         var textureProcessedSizeMB = processedSize / 1024.0 / 1024.0;
                         var textureTotalSizeMB = totalSize / 1024.0 / 1024.0;
-                        var textureProgressMessage = $"Installing files {processedFiles}/{totalFiles} ({textureProcessedSizeMB:F1}MB/{textureTotalSizeMB:F1}MB) - Converting textures: {processedTextures}/{totalTextures}";
+                        
+                        // Use GB for sizes >= 1GB, MB otherwise
+                        string textureProcessedSizeStr, textureTotalSizeStr;
+                        if (textureProcessedSizeMB >= 1024.0)
+                        {
+                            textureProcessedSizeStr = $"{textureProcessedSizeMB / 1024.0:F1}GB";
+                        }
+                        else
+                        {
+                            textureProcessedSizeStr = $"{textureProcessedSizeMB:F1}MB";
+                        }
+                        
+                        if (textureTotalSizeMB >= 1024.0)
+                        {
+                            textureTotalSizeStr = $"{textureTotalSizeMB / 1024.0:F1}GB";
+                        }
+                        else
+                        {
+                            textureTotalSizeStr = $"{textureTotalSizeMB:F1}MB";
+                        }
+                        
+                        var textureProgressMessage = $"{duration} Installing files {processedFiles}/{totalFiles} ({textureProcessedSizeStr}/{textureTotalSizeStr}) - Converting textures: {processedTextures}/{totalTextures}";
                         Console.Write($"\r{textureProgressMessage}");
                         
                         // Only log individual texture recompression in debug mode
