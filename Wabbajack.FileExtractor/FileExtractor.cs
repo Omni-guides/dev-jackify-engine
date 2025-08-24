@@ -271,7 +271,7 @@ public class FileExtractor
             results.Add(entry.Path, result);
         }
         
-        _logger.LogInformation("Finished extracting {Name}", sFn.Name);
+        _logger.LogDebug("Finished extracting {Name}", sFn.Name);
         return results;
     }
 
