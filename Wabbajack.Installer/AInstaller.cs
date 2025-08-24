@@ -367,7 +367,8 @@ public abstract class AInstaller<T>
     public async Task DownloadArchives(CancellationToken token)
     {
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
-        _logger.LogInformation("Missing {count} archives", missing.Count);
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Missing {count} archives", timestamp, missing.Count);
 
         var dispatchers = missing.Select(m => _downloadDispatcher.Downloader(m))
             .Distinct()
@@ -375,11 +376,11 @@ public abstract class AInstaller<T>
 
         await Task.WhenAll(dispatchers.Select(d => d.Prepare()));
 
-        _logger.LogInformation("Downloading validation data");
+        _logger.LogInformation("[{Timestamp}] Downloading validation data", timestamp);
         var validationData = await _wjClient.LoadDownloadAllowList();
         var mirrors = (await _wjClient.LoadMirrors()).ToLookup(m => m.Hash);
 
-        _logger.LogInformation("Validating Archives");
+        _logger.LogInformation("[{Timestamp}] Validating Archives", timestamp);
 
         foreach (var archive in missing)
         {
@@ -400,13 +401,14 @@ public abstract class AInstaller<T>
             return;
         }
 
-        _logger.LogInformation("Downloading missing archives");
+        _logger.LogInformation("[{Timestamp}] Downloading missing archives", timestamp);
         await DownloadMissingArchives(missing, token);
     }
 
     public async Task DownloadMissingArchives(List<Archive> missing, CancellationToken token, bool download = true)
     {
-        _logger.LogInformation("Downloading {Count} archives", missing.Count.ToString());
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Downloading {Count} archives", timestamp, missing.Count.ToString());
         NextStep(Consts.StepDownloading, "Downloading files", missing.Count);
 
         missing = await missing
@@ -513,24 +515,25 @@ public abstract class AInstaller<T>
     public async Task HashArchives(CancellationToken token)
     {
         NextStep(Consts.StepHashing, "Hashing Archives", 0);
-        _logger.LogInformation("Looking for files to hash");
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Looking for files to hash", timestamp);
 
         var allFiles = _configuration.Downloads.EnumerateFiles()
             .Concat(_gameLocator.GameLocation(_configuration.Game).EnumerateFiles())
             .ToList();
 
-        _logger.LogInformation("Getting archive sizes");
+        _logger.LogInformation("[{Timestamp}] Getting archive sizes", timestamp);
         var hashDict = (await allFiles.PMapAllBatched(_limiter, x => (x, x.Size())).ToList())
             .GroupBy(f => f.Item2)
             .ToDictionary(g => g.Key, g => g.Select(v => v.x));
 
-        _logger.LogInformation("Linking archives to downloads");
+        _logger.LogInformation("[{Timestamp}] Linking archives to downloads", timestamp);
         var toHash = ModList.Archives.Where(a => hashDict.ContainsKey(a.Size))
             .SelectMany(a => hashDict[a.Size]).ToList();
 
         MaxStepProgress = toHash.Count;
 
-        _logger.LogInformation("Found {count} total files, {hashedCount} matching filesize", allFiles.Count,
+        _logger.LogInformation("[{Timestamp}] Found {count} total files, {hashedCount} matching filesize", timestamp, allFiles.Count,
             toHash.Count);
 
         var hashResults = await
@@ -557,7 +560,8 @@ public abstract class AInstaller<T>
     /// </summary>
     protected async Task OptimizeModlist(CancellationToken token)
     {
-        _logger.LogInformation("Optimizing ModList directives");
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Optimizing ModList directives", timestamp);
         UnoptimizedArchives = ModList.Archives;
         UnoptimizedDirectives = ModList.Directives;
         
@@ -674,7 +678,7 @@ public abstract class AInstaller<T>
             });
 
         NextStep(Consts.StepPreparing, "Updating ModList", 0);
-        _logger.LogInformation("Optimized {From} directives to {To} required", ModList.Directives.Length, indexed.Count);
+        _logger.LogInformation("[{Timestamp}] Optimized {From} directives to {To} required", timestamp, ModList.Directives.Length, indexed.Count);
         var requiredArchives = indexed.Values.OfType<FromArchive>()
             .GroupBy(d => d.ArchiveHashPath.Hash)
             .Select(d => d.Key)

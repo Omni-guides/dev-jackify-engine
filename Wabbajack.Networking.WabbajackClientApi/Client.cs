@@ -85,7 +85,8 @@ public class Client
     {
         if (!_inited)
         {
-            _logger.LogInformation("Init Client: {Id}", (await _token.Get())?.MetricsKey);
+            var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Init Client: {Id}", timestamp, (await _token.Get())?.MetricsKey);
             _inited = true;
         }
         
