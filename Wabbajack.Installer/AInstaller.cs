@@ -381,14 +381,31 @@ public abstract class AInstaller<T>
             }
         }
 
+        // Set up progress tracking for bulk downloads
+        var startTime = DateTime.UtcNow;
+        var completedCount = 0;
+        var totalSize = missing.Where(a => a.State is not Manual).Sum(a => a.Size);
+        var processedBytes = 0L;
+
         await missing
             .Shuffle()
             .Where(a => a.State is not Manual)
             .PDoAll(async archive =>
             {
-                _logger.LogInformation("Downloading {Archive}", archive.Name);
                 var outputPath = _configuration.Downloads.Combine(archive.Name);
                 var hash = await DownloadArchive(archive, download, token, outputPath);
+                
+                // Update progress with speed calculation
+                Interlocked.Increment(ref completedCount);
+                Interlocked.Add(ref processedBytes, archive.Size);
+                
+                var elapsed = DateTime.UtcNow - startTime;
+                var speedMBps = elapsed.TotalSeconds > 0 ? (processedBytes / 1024.0 / 1024.0) / elapsed.TotalSeconds : 0;
+                var nonManualCount = missing.Count(a => a.State is not Manual);
+                
+                _logger.LogInformation("Downloading Mod Archives ({Completed}/{Total}) - {SpeedMBps:F1}MB/s", 
+                    completedCount, nonManualCount, speedMBps);
+                
                 UpdateProgress(1);
             });
     }
