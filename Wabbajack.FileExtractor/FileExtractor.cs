@@ -283,7 +283,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        var dest = _manager.CreateFolder();
+        await using var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
@@ -428,7 +428,7 @@ public class FileExtractor
         Action<Percent>? progressFunction = null)
     {
         TemporaryPath? tmpFile = null;
-        var dest = _manager.CreateFolder();
+        await using var dest = _manager.CreateFolder();
 
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
