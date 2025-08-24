@@ -252,10 +252,11 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
     private async Task WriteMetaFiles(CancellationToken token)
     {
-        _logger.LogInformation("Looking for downloads by size");
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Looking for downloads by size", duration);
         var bySize = UnoptimizedArchives.ToLookup(x => x.Size);
 
-        _logger.LogInformation("Writing Metas");
+        _logger.LogInformation("{Duration} Writing Metas", duration);
         await _configuration.Downloads.EnumerateFiles()
             .Where(download => download.Extension != Ext.Meta)
             .PDoAll(async download =>
@@ -353,15 +354,16 @@ public class StandardInstaller : AInstaller<StandardInstaller>
     private async Task BuildBSAs(CancellationToken token)
     {
         var bsas = ModList.Directives.OfType<CreateBSA>().ToList();
-        _logger.LogInformation("Generating debug caches");
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Generating debug caches", duration);
         var indexedByDestination = UnoptimizedDirectives.ToDictionary(d => d.To);
-        _logger.LogInformation("Building {bsasCount} bsa files", bsas.Count);
+        _logger.LogInformation("{Duration} Building {bsasCount} bsa files", duration, bsas.Count);
         NextStep("Installing", "Building BSAs", bsas.Count);
 
         foreach (var bsa in bsas)
         {
             UpdateProgress(1);
-            _logger.LogInformation("Building {bsaTo}", bsa.To.FileName);
+            _logger.LogInformation("{Duration} Building {bsaTo}", duration, bsa.To.FileName);
             var sourceDir = _configuration.Install.Combine(Consts.BSACreationDir, bsa.TempID);
 
             await using var a = BSADispatch.CreateBuilder(bsa.State, _manager);
@@ -372,7 +374,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                 return fs;
             }).ToList();
 
-            _logger.LogInformation("Writing {bsaTo}", bsa.To);
+            _logger.LogInformation("{Duration} Writing {bsaTo}", duration, bsa.To);
             var outPath = _configuration.Install.Combine(bsa.To);
 
             await using (var outStream = outPath.Open(FileMode.Create, FileAccess.Write, FileShare.None))
@@ -385,7 +387,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             await FileHashCache.FileHashWriteCache(outPath, bsa.Hash);
             sourceDir.DeleteDirectory();
 
-            _logger.LogInformation("Verifying {bsaTo}", bsa.To);
+            _logger.LogInformation("{Duration} Verifying {bsaTo}", duration, bsa.To);
             var reader = await BSADispatch.Open(outPath);
             var results = await reader.Files.PMapAllBatchedAsync(_limiter, async state =>
             {
@@ -412,7 +414,12 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
     private async Task InstallIncludedFiles(CancellationToken token)
     {
-        _logger.LogInformation("Writing inline files");
+        // Add newline to ensure this appears on its own line after progress
+        Console.WriteLine();
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Writing inline files", duration);
+        // Add newline before section header for proper separation
+        Console.WriteLine();
         NextStep(Consts.StepInstalling, "Installing Included Files", ModList.Directives.OfType<InlineFile>().Count());
         await ModList.Directives
             .OfType<InlineFile>()
