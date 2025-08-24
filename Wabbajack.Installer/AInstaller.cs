@@ -266,6 +266,10 @@ public abstract class AInstaller<T>
                 Interlocked.Increment(ref processedFiles);
                 Interlocked.Add(ref processedSize, file.Size);
                 
+                // Update single-line progress for file processing
+                var fileProgressMessage = $"Extracting Files ({processedFiles}/{totalFiles}) - Converting Textures ({processedTextures}/{totalTextures})";
+                Console.Write($"\r{fileProgressMessage}");
+                
                 var destPath = file.To.RelativeTo(_configuration.Install);
                 switch (file)
                 {
@@ -290,10 +294,9 @@ public abstract class AInstaller<T>
                         // Update texture progress before conversion
                         Interlocked.Increment(ref processedTextures);
                         
-                        // Log combined progress
-                        var fileSizeInfo = $"({processedSize.ToFileSizeString()}/{totalSize.ToFileSizeString()})";
-                        _logger.LogInformation("Extracting Files ({ProcessedFiles}/{TotalFiles}) - Converting Textures ({ProcessedTextures}/{TotalTextures})", 
-                            processedFiles, totalFiles, processedTextures, totalTextures);
+                        // Update single-line progress (overwrites the same line)
+                        var textureProgressMessage = $"Extracting Files ({processedFiles}/{totalFiles}) - Converting Textures ({processedTextures}/{totalTextures})";
+                        Console.Write($"\r{textureProgressMessage}");
                         
                         // Only log individual texture recompression in debug mode
                         _logger.LogDebug("Recompressing {Filename}", tt.To.FileName);

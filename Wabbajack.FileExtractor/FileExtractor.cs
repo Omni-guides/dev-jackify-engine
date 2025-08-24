@@ -82,7 +82,7 @@ public class FileExtractor
         HashSet<RelativePath>? onlyFiles = null,
         Action<Percent>? progressFunction = null)
     {
-        if (sFn is NativeFileStreamFactory) _logger.LogInformation("Extracting {file}", sFn.Name);
+        if (sFn is NativeFileStreamFactory) _logger.LogDebug("Extracting {file}", sFn.Name);
         await using var archive = await sFn.GetStream();
         var sig = await ArchiveSigs.MatchesAsync(archive);
         archive.Position = 0;
@@ -271,7 +271,7 @@ public class FileExtractor
             results.Add(entry.Path, result);
         }
         
-        _logger.LogInformation("Finished extracting {Name}", sFn.Name);
+        _logger.LogDebug("Finished extracting {Name}", sFn.Name);
         return results;
     }
 
@@ -303,7 +303,7 @@ public class FileExtractor
                 source = spoolFile.Value.Path;
             }
 
-            _logger.LogInformation("Extracting {Source}", source.FileName);
+            _logger.LogDebug("Extracting {Source}", source.FileName);
 
 
             var initialPath = "";
@@ -330,15 +330,15 @@ public class FileExtractor
 
                 // Debug logging removed - onlyFiles list no longer needed in output
 
-                // Check specifically for PriorityMod.dll
+                // Check specifically for PriorityMod.dll (debug only)
                 var priorityModFile = onlyFiles.FirstOrDefault(f => f.ToString().Contains("PriorityMod.dll"));
                 if (priorityModFile != null)
                 {
-                    _logger.LogInformation("FOUND PriorityMod.dll in onlyFiles: {File}", priorityModFile);
+                    _logger.LogDebug("FOUND PriorityMod.dll in onlyFiles: {File}", priorityModFile);
                 }
                 else
                 {
-                    _logger.LogWarning("PriorityMod.dll NOT FOUND in onlyFiles list!");
+                    _logger.LogDebug("PriorityMod.dll NOT FOUND in onlyFiles list!");
                 }
 
                 tmpFile = _manager.CreateFile();
@@ -513,7 +513,7 @@ public class FileExtractor
             }
             else
             {
-                _logger.LogInformation($"Extracting {source.FileName} - done");
+                _logger.LogDebug($"Extracting {source.FileName} - done");
             }
             
             job.Dispose();

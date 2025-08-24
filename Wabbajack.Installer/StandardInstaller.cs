@@ -174,6 +174,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
         NextStep(Consts.StepFinished, "Finished", 1);
         _logger.LogInformation("Finished Installation");
+        Console.WriteLine(); // Add newline after progress line
         return InstallResult.Succeeded;
     }
 
