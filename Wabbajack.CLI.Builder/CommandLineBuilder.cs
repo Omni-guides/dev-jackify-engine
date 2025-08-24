@@ -18,6 +18,11 @@ public class CommandLineBuilder
     public async Task<int> Run(string[] args)
     {
         var root = new RootCommand();
+        
+        // Add global debug option
+        var debugOption = new Option<bool>("--debug", "Enable debug logging");
+        root.AddGlobalOption(debugOption);
+        
         foreach (var verb in _commands)
         {
             root.Add(MakeCommend(verb.Type, verb.Handler, verb.Definition));

@@ -27,8 +27,11 @@ internal class Program
 {
     private static async Task<int> Main(string[] args)
     {
+        // Check for debug mode
+        bool debugMode = Array.IndexOf(args, "--debug") >= 0;
+        
         var host = Host.CreateDefaultBuilder(Array.Empty<string>())
-            .ConfigureLogging(AddLogging)
+            .ConfigureLogging(builder => AddLogging(builder, debugMode))
             .ConfigureServices((host, services) =>
             {
                 services.AddSingleton(new JsonSerializerOptions());
@@ -60,7 +63,7 @@ internal class Program
         return await service!.Run(args);
     }
     
-    private static void AddLogging(ILoggingBuilder loggingBuilder)
+    private static void AddLogging(ILoggingBuilder loggingBuilder, bool debugMode = false)
     {
         var config = new NLog.Config.LoggingConfiguration();
 
@@ -79,9 +82,18 @@ internal class Program
             Layout = "${processtime} [${level:uppercase=true}] ${message:withexception=true}",
         };
         
-
         config.AddRuleForAllLevels(fileTarget);
-        config.AddRuleForAllLevels(consoleTarget);
+        
+        if (debugMode)
+        {
+            // In debug mode, show all log levels on console
+            config.AddRuleForAllLevels(consoleTarget);
+        }
+        else
+        {
+            // In non-debug mode, only show warnings and errors on console
+            config.AddRule(NLog.LogLevel.Warn, NLog.LogLevel.Fatal, consoleTarget);
+        }
 
         loggingBuilder.ClearProviders();
         loggingBuilder.SetMinimumLevel(LogLevel.Trace);
