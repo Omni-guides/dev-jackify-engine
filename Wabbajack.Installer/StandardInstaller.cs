@@ -479,7 +479,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogCritical(ex, "Skipping screen size remap for {file} due to parse error.", file);
+                    _logger.LogDebug(ex, "Skipping screen size remap for {file} due to parse error.", file);
                 }
         }
 
@@ -504,7 +504,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "Skipping screen size remap for {file} due to parse error.", file);
+                _logger.LogDebug(ex, "Skipping screen size remap for {file} due to parse error.", file);
             }
 
         // The Witcher 3
