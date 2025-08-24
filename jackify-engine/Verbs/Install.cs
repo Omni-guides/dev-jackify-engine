@@ -67,6 +67,13 @@ public class Install
             }
         }
 
+        // Print version header
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] jackify-engine v{Version}: Minimal Linux-native modlist installer for Jackify", timestamp, version);
+        _logger.LogInformation("[{Timestamp}] ---------------------------------------------------------------", timestamp);
+        _logger.LogInformation("[{Timestamp}] For help, use: jackify-engine --help", timestamp);
+
         var modlist = await StandardInstaller.LoadFromFile(_dtos, wabbajack);
 
         var installer = StandardInstaller.Create(_serviceProvider, new InstallerConfiguration

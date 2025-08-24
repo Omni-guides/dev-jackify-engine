@@ -117,9 +117,8 @@ public abstract class AInstaller<T>
         _statusCategory = statusCategory;
         _statusFormatter = formatter ?? (x => x.ToString());
         
-        // Format: [00:00:00] === Preparing - Configuring Installer ===
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        var sectionHeader = $"[{timestamp}] === {statusCategory} - {statusText} ===";
+        // Format: === Configuring Installer ===
+        var sectionHeader = $"=== {statusText} ===";
         _logger.LogInformation(sectionHeader);
 
         OnStatusUpdate?.Invoke(new StatusUpdate(statusCategory, statusText,
@@ -233,6 +232,11 @@ public abstract class AInstaller<T>
         var totalFiles = allDirectives.Count;
         var totalTextures = textureDirectives.Count;
         
+        // Print starting installation message
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
+        _logger.LogInformation("[{Timestamp}] Starting installation: {TotalFiles} files to process, {TotalTextures} textures to recompress", 
+            timestamp, totalFiles, totalTextures);
+        
         // Progress tracking variables
         var processedFiles = 0;
         var processedTextures = 0;
@@ -271,8 +275,10 @@ public abstract class AInstaller<T>
                 Interlocked.Increment(ref processedFiles);
                 Interlocked.Add(ref processedSize, file.Size);
                 
-                // Update single-line progress for file processing
-                var fileProgressMessage = $"Extracting Files ({processedFiles}/{totalFiles}) - Converting Textures ({processedTextures}/{totalTextures})";
+                // Update single-line progress for file processing with file sizes
+                var processedSizeMB = processedSize / 1024.0 / 1024.0;
+                var totalSizeMB = totalSize / 1024.0 / 1024.0;
+                var fileProgressMessage = $"Installing files {processedFiles}/{totalFiles} ({processedSizeMB:F1}MB/{totalSizeMB:F1}MB) - Converting textures: {processedTextures}/{totalTextures}";
                 Console.Write($"\r{fileProgressMessage}");
                 
                 var destPath = file.To.RelativeTo(_configuration.Install);
@@ -299,8 +305,10 @@ public abstract class AInstaller<T>
                         // Update texture progress before conversion
                         Interlocked.Increment(ref processedTextures);
                         
-                        // Update single-line progress (overwrites the same line)
-                        var textureProgressMessage = $"Extracting Files ({processedFiles}/{totalFiles}) - Converting Textures ({processedTextures}/{totalTextures})";
+                        // Update single-line progress (overwrites the same line) with file sizes
+                        var textureProcessedSizeMB = processedSize / 1024.0 / 1024.0;
+                        var textureTotalSizeMB = totalSize / 1024.0 / 1024.0;
+                        var textureProgressMessage = $"Installing files {processedFiles}/{totalFiles} ({textureProcessedSizeMB:F1}MB/{textureTotalSizeMB:F1}MB) - Converting textures: {processedTextures}/{totalTextures}";
                         Console.Write($"\r{textureProgressMessage}");
                         
                         // Only log individual texture recompression in debug mode
