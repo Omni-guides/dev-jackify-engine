@@ -67,12 +67,11 @@ public class Install
             }
         }
 
-        // Print version header
+        // Print version header (no timestamps - these are informational messages before installation)
         var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] jackify-engine v{Version}: Minimal Linux-native modlist installer for Jackify", timestamp, version);
-        _logger.LogInformation("[{Timestamp}] ---------------------------------------------------------------", timestamp);
-        _logger.LogInformation("[{Timestamp}] For help, use: jackify-engine --help", timestamp);
+        _logger.LogInformation("jackify-engine v{Version}: Minimal Linux-native modlist installer for Jackify", version);
+        _logger.LogInformation("---------------------------------------------------------------");
+        _logger.LogInformation("For help, use: jackify-engine --help");
 
         var modlist = await StandardInstaller.LoadFromFile(_dtos, wabbajack);
 
