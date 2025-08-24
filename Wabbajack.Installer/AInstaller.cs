@@ -63,10 +63,27 @@ public abstract class AInstaller<T>
     private string _statusCategory;
     private string _statusText;
     private readonly Stopwatch _updateStopWatch = new();
+    protected readonly Stopwatch _installationStopWatch = new();
 
     public Action<StatusUpdate>? OnStatusUpdate;
     protected readonly IResource<IInstaller> _limiter;
     private Func<long, string> _statusFormatter = x => x.ToString();
+
+    /// <summary>
+    /// Formats the elapsed installation time as [MM:SS] or [HH:MM:SS] for longer durations
+    /// </summary>
+    protected string GetInstallationDuration()
+    {
+        var elapsed = _installationStopWatch.Elapsed;
+        if (elapsed.TotalHours >= 1)
+        {
+            return $"[{elapsed.Hours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}]";
+        }
+        else
+        {
+            return $"[{elapsed.Minutes:D2}:{elapsed.Seconds:D2}]";
+        }
+    }
 
 
     public AInstaller(ILogger<T> logger, InstallerConfiguration config, IGameLocator gameLocator,
@@ -215,8 +232,8 @@ public abstract class AInstaller<T>
     public Task BuildFolderStructure()
     {
         NextStep(Consts.StepPreparing, "Building Folder Structure", 0);
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Building Folder Structure", timestamp);
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Building Folder Structure", duration);
         ModList.Directives
             .Where(d => d.To.Depth > 1)
             .Select(d => _configuration.Install.Combine(d.To.Parent))
@@ -236,9 +253,9 @@ public abstract class AInstaller<T>
         var totalTextures = textureDirectives.Count;
         
         // Print starting installation message
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Starting installation: {TotalFiles} files to process, {TotalTextures} textures to recompress", 
-            timestamp, totalFiles, totalTextures);
+                var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Starting installation: {TotalFiles} files to process, {TotalTextures} textures to recompress",
+            duration, totalFiles, totalTextures);
         
         // Progress tracking variables
         var processedFiles = 0;
@@ -367,8 +384,8 @@ public abstract class AInstaller<T>
     public async Task DownloadArchives(CancellationToken token)
     {
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Missing {count} archives", timestamp, missing.Count);
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Missing {count} archives", duration, missing.Count);
 
         var dispatchers = missing.Select(m => _downloadDispatcher.Downloader(m))
             .Distinct()
@@ -376,11 +393,11 @@ public abstract class AInstaller<T>
 
         await Task.WhenAll(dispatchers.Select(d => d.Prepare()));
 
-        _logger.LogInformation("[{Timestamp}] Downloading validation data", timestamp);
+        _logger.LogInformation("{Duration} Downloading validation data", duration);
         var validationData = await _wjClient.LoadDownloadAllowList();
         var mirrors = (await _wjClient.LoadMirrors()).ToLookup(m => m.Hash);
 
-        _logger.LogInformation("[{Timestamp}] Validating Archives", timestamp);
+        _logger.LogInformation("{Duration} Validating Archives", duration);
 
         foreach (var archive in missing)
         {
@@ -401,14 +418,14 @@ public abstract class AInstaller<T>
             return;
         }
 
-        _logger.LogInformation("[{Timestamp}] Downloading missing archives", timestamp);
+        _logger.LogInformation("{Duration} Downloading missing archives", duration);
         await DownloadMissingArchives(missing, token);
     }
 
     public async Task DownloadMissingArchives(List<Archive> missing, CancellationToken token, bool download = true)
     {
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Downloading {Count} archives", timestamp, missing.Count.ToString());
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Downloading {Count} archives", duration, missing.Count.ToString());
         NextStep(Consts.StepDownloading, "Downloading files", missing.Count);
 
         missing = await missing
@@ -515,25 +532,25 @@ public abstract class AInstaller<T>
     public async Task HashArchives(CancellationToken token)
     {
         NextStep(Consts.StepHashing, "Hashing Archives", 0);
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Looking for files to hash", timestamp);
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Looking for files to hash", duration);
 
         var allFiles = _configuration.Downloads.EnumerateFiles()
             .Concat(_gameLocator.GameLocation(_configuration.Game).EnumerateFiles())
             .ToList();
 
-        _logger.LogInformation("[{Timestamp}] Getting archive sizes", timestamp);
+        _logger.LogInformation("{Duration} Getting archive sizes", duration);
         var hashDict = (await allFiles.PMapAllBatched(_limiter, x => (x, x.Size())).ToList())
             .GroupBy(f => f.Item2)
             .ToDictionary(g => g.Key, g => g.Select(v => v.x));
 
-        _logger.LogInformation("[{Timestamp}] Linking archives to downloads", timestamp);
+        _logger.LogInformation("{Duration} Linking archives to downloads", duration);
         var toHash = ModList.Archives.Where(a => hashDict.ContainsKey(a.Size))
             .SelectMany(a => hashDict[a.Size]).ToList();
 
         MaxStepProgress = toHash.Count;
 
-        _logger.LogInformation("[{Timestamp}] Found {count} total files, {hashedCount} matching filesize", timestamp, allFiles.Count,
+        _logger.LogInformation("{Duration} Found {count} total files, {hashedCount} matching filesize", duration, allFiles.Count,
             toHash.Count);
 
         var hashResults = await
@@ -560,8 +577,8 @@ public abstract class AInstaller<T>
     /// </summary>
     protected async Task OptimizeModlist(CancellationToken token)
     {
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Optimizing ModList directives", timestamp);
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Optimizing ModList directives", duration);
         UnoptimizedArchives = ModList.Archives;
         UnoptimizedDirectives = ModList.Directives;
         
@@ -678,7 +695,7 @@ public abstract class AInstaller<T>
             });
 
         NextStep(Consts.StepPreparing, "Updating ModList", 0);
-        _logger.LogInformation("[{Timestamp}] Optimized {From} directives to {To} required", timestamp, ModList.Directives.Length, indexed.Count);
+        _logger.LogInformation("{Duration} Optimized {From} directives to {To} required", duration, ModList.Directives.Length, indexed.Count);
         var requiredArchives = indexed.Values.OfType<FromArchive>()
             .GroupBy(d => d.ArchiveHashPath.Hash)
             .Select(d => d.Key)

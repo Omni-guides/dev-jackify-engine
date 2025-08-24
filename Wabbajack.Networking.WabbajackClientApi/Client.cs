@@ -85,7 +85,8 @@ public class Client
     {
         if (!_inited)
         {
-            var timestamp = DateTime.Now.ToString("HH:mm:ss");
+            // Note: This is called before installation starts, so we can't use duration here
+        var timestamp = DateTime.Now.ToString("HH:mm:ss");
         _logger.LogInformation("[{Timestamp}] Init Client: {Id}", timestamp, (await _token.Get())?.MetricsKey);
             _inited = true;
         }

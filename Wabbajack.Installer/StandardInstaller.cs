@@ -73,11 +73,15 @@ public class StandardInstaller : AInstaller<StandardInstaller>
     public override async Task<InstallResult> Begin(CancellationToken token)
     {
         if (token.IsCancellationRequested) return InstallResult.Cancelled;
-        var timestamp = DateTime.Now.ToString("HH:mm:ss");
-        _logger.LogInformation("[{Timestamp}] Installing: {Name} - {Version}", timestamp, _configuration.ModList.Name, _configuration.ModList.Version);
+        
+        // Start the installation stopwatch
+        _installationStopWatch.Start();
+        
+        var duration = GetInstallationDuration();
+        _logger.LogInformation("{Duration} Installing: {Name} - {Version}", duration, _configuration.ModList.Name, _configuration.ModList.Version);
         await _wjClient.SendMetric(MetricNames.BeginInstall, ModList.Name);
         NextStep(Consts.StepPreparing, "Configuring Installer", 0);
-        _logger.LogInformation("[{Timestamp}] Configuring Processor", timestamp);
+        _logger.LogInformation("{Duration} Configuring Processor", duration);
 
         if (_configuration.GameFolder == default)
             _configuration.GameFolder = _gameLocator.GameLocation(_configuration.Game);
@@ -109,10 +113,10 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         }
 
 
-        _logger.LogInformation("[{Timestamp}] Install Folder: {InstallFolder}", timestamp, _configuration.Install);
-        _logger.LogInformation("[{Timestamp}] Downloads Folder: {DownloadFolder}", timestamp, _configuration.Downloads);
-        _logger.LogInformation("[{Timestamp}] Game Folder: {GameFolder}", timestamp, _configuration.GameFolder);
-        _logger.LogInformation("[{Timestamp}] Engine Folder: {WabbajackFolder}", timestamp, KnownFolders.EntryPoint);
+        _logger.LogInformation("{Duration} Install Folder: {InstallFolder}", duration, _configuration.Install);
+        _logger.LogInformation("{Duration} Downloads Folder: {DownloadFolder}", duration, _configuration.Downloads);
+        _logger.LogInformation("{Duration} Game Folder: {GameFolder}", duration, _configuration.GameFolder);
+        _logger.LogInformation("{Duration} Engine Folder: {WabbajackFolder}", duration, KnownFolders.EntryPoint);
 
         _configuration.Install.CreateDirectory();
         _configuration.Downloads.CreateDirectory();
