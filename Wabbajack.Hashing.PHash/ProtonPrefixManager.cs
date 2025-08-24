@@ -25,8 +25,8 @@ namespace Wabbajack.Hashing.PHash
             _logger = logger;
             _protonDetector = new ProtonDetector(NullLogger<ProtonDetector>.Instance);
             
-            // Create prefix in ~/jackify/.prefix-<UUID>
-            _prefixBaseDir = KnownFolders.EntryPoint.Parent.Parent.Combine("jackify");
+            // Create prefix in ~/Jackify/.prefix-<UUID>
+            _prefixBaseDir = KnownFolders.EntryPoint.Parent.Parent.Combine("Jackify");
             _currentPrefix = _prefixBaseDir.Combine($".prefix-{Guid.NewGuid():N}");
         }
 
@@ -91,16 +91,12 @@ namespace Wabbajack.Hashing.PHash
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
 
-            // Convert Linux path to Wine path for texconv.exe
-            var texconvPath = @"Tools\texconv.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint);
-            var wineTexconvPath = ProtonDetector.ConvertToWinePath(texconvPath);
-            
-            _logger.LogDebug("Creating texconv process with Wine path: {WinePath}", wineTexconvPath);
+            _logger.LogDebug("Creating texconv process with Proton path: {ProtonPath}", protonWrapperPath);
             
             return new ProcessHelper
             {
                 Path = protonWrapperPath.ToAbsolutePath(),
-                Arguments = new object[] { "run", wineTexconvPath }.Concat(texConvArgs),
+                Arguments = new object[] { "run", "Tools\\texconv.exe" }.Concat(texConvArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),
@@ -126,16 +122,12 @@ namespace Wabbajack.Hashing.PHash
                 throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
             }
 
-            // Convert Linux path to Wine path for texdiag.exe
-            var texdiagPath = @"Tools\texdiag.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint);
-            var wineTexdiagPath = ProtonDetector.ConvertToWinePath(texdiagPath);
-            
-            _logger.LogDebug("Creating texdiag process with Wine path: {WinePath}", wineTexdiagPath);
+            _logger.LogDebug("Creating texdiag process with Proton path: {ProtonPath}", protonWrapperPath);
             
             return new ProcessHelper
             {
                 Path = protonWrapperPath.ToAbsolutePath(),
-                Arguments = new object[] { "run", wineTexdiagPath }.Concat(texDiagArgs),
+                Arguments = new object[] { "run", "Tools\\texdiag.exe" }.Concat(texDiagArgs),
                 EnvironmentVariables = new Dictionary<string, string>
                 {
                     ["WINEPREFIX"] = prefix.ToString(),

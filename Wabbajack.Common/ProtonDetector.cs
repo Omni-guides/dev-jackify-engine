@@ -37,7 +37,7 @@ public class ProtonDetector
     /// <returns>Path to the Proton wrapper, or null if none found</returns>
     public async Task<string?> GetProtonWrapperPathAsync()
     {
-        _logger.LogDebug("ProtonDetector.GetProtonWrapperPath() called");
+        // Debug logging removed
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {

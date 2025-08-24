@@ -328,14 +328,7 @@ public class FileExtractor
                     yield return $"\"/{input.Replace("\\", "/")}\"";
                 }
 
-                // Debug logging for onlyFiles content
-                _logger.LogInformation("7zip extraction for {Source} - {Count} files in onlyFiles list", source.FileName, onlyFiles.Count);
-                foreach (var file in onlyFiles.Take(20)) // Log first 20 files
-                {
-                    _logger.LogDebug("onlyFiles contains: {File}", file);
-                }
-                if (onlyFiles.Count > 20)
-                    _logger.LogDebug("... and {More} more files", onlyFiles.Count - 20);
+                // Debug logging removed - onlyFiles list no longer needed in output
 
                 // Check specifically for PriorityMod.dll
                 var priorityModFile = onlyFiles.FirstOrDefault(f => f.ToString().Contains("PriorityMod.dll"));
@@ -417,7 +410,7 @@ public class FileExtractor
                 .SelectAsync(async f =>
                 {
                     var path = f.RelativeTo(dest.Path);
-                    _logger.LogDebug("DEBUG: Processing extracted file path: {Path}, shouldExtract: {ShouldExtract}", path, shouldExtract(path));
+                    // Debug logging removed
                     if (!shouldExtract(path)) return ((RelativePath, T)) default;
                     var file = new ExtractedNativeFile(f);
                     var mapResult = await mapfn(path, file);
