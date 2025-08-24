@@ -295,7 +295,8 @@ public abstract class AInstaller<T>
                         _logger.LogInformation("Extracting Files ({ProcessedFiles}/{TotalFiles}) - Converting Textures ({ProcessedTextures}/{TotalTextures})", 
                             processedFiles, totalFiles, processedTextures, totalTextures);
                         
-                        _logger.LogInformation("Recompressing {Filename}", tt.To.FileName);
+                        // Only log individual texture recompression in debug mode
+                        _logger.LogDebug("Recompressing {Filename}", tt.To.FileName);
                         await ImageLoader.Recompress(s, tt.ImageState.Width, tt.ImageState.Height, tt.ImageState.MipLevels, tt.ImageState.Format,
                             of, token);
                     }
