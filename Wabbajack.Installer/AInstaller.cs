@@ -117,12 +117,12 @@ public abstract class AInstaller<T>
         _statusCategory = statusCategory;
         _statusFormatter = formatter ?? (x => x.ToString());
         
+        // Add blank line before section header for better visual separation
+        Console.WriteLine();
+        
         // Format: === Configuring Installer ===
         var sectionHeader = $"=== {statusText} ===";
         _logger.LogInformation(sectionHeader);
-        
-        // Add blank line after section header for better visual separation
-        Console.WriteLine();
 
         OnStatusUpdate?.Invoke(new StatusUpdate(statusCategory, statusText,
             Percent.FactoryPutInRange(_currentStep, MaxSteps), Percent.Zero, _currentStep));
