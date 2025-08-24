@@ -271,7 +271,7 @@ public class FileExtractor
             results.Add(entry.Path, result);
         }
         
-        _logger.LogDebug("Finished extracting {Name}", sFn.Name);
+        _logger.LogInformation("Finished extracting {Name}", sFn.Name);
         return results;
     }
 
@@ -348,12 +348,12 @@ public class FileExtractor
 
                 process.Arguments =
                 [
-                    "x", "-bsp1", "-y", $"-o\"{dest}\"", source, $"@\"{tmpFile.Value.ToString()}\"", "-mmt=2"
+                    "x", "-bsp1", "-y", $"-o\"{dest}\"", source, $"@\"{tmpFile.Value.ToString()}\"", "-mmt=off"
                 ];
             }
             else
             {
-                process.Arguments = ["x", "-bsp1", "-y", $"-o\"{dest}\"", source, "-mmt=2"];
+                process.Arguments = ["x", "-bsp1", "-y", $"-o\"{dest}\"", source, "-mmt=off"];
             }
 
             _logger.LogTrace("{prog} {args}", process.Path, process.Arguments);
@@ -391,11 +391,7 @@ public class FileExtractor
                 throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
             }
 
-            // Post-process: move files with backslashes in their names to correct subdirectories
-            await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
 
-            // Add small delay to ensure file system sync after extraction
-            await Task.Delay(100, token);
             
             job.Dispose();
             var results = await dest.Path.EnumerateFiles()
