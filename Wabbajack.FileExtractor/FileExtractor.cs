@@ -322,34 +322,40 @@ public class FileExtractor
                 //It's stupid that we have to do this, but 7zip's file pattern matching isn't very fuzzy
                 IEnumerable<string> AllVariants(string input)
                 {
+                    var forward = input.Replace("\\", "/");
+                    
+                    // Basic variants with different slashes
                     yield return $"\"{input}\"";
                     yield return $"\"\\{input}\"";
-                    yield return $"\"{input.Replace("\\", "/")}\"";
-                    yield return $"\"/{input.Replace("\\", "/")}\"";
-                }
-
-                // Debug logging removed - onlyFiles list no longer needed in output
-
-                // Check specifically for PriorityMod.dll (debug only)
-                var priorityModFile = onlyFiles.FirstOrDefault(f => f.ToString().Contains("PriorityMod.dll"));
-                if (priorityModFile != null)
-                {
-                    _logger.LogDebug("FOUND PriorityMod.dll in onlyFiles: {File}", priorityModFile);
-                }
-                else
-                {
-                    _logger.LogDebug("PriorityMod.dll NOT FOUND in onlyFiles list!");
+                    yield return $"\"{forward}\"";
+                    yield return $"\"/{forward}\"";
+                    
+                    // Case variants - handle the common Data/meshes vs Data/Meshes issue
+                    var lowerMeshes = forward.Replace("Data/meshes", "Data/Meshes");
+                    var upperMeshes = forward.Replace("Data/meshes", "Data/meshes");
+                    
+                    if (lowerMeshes != forward)
+                    {
+                        yield return $"\"{lowerMeshes}\"";
+                        yield return $"\"\\{lowerMeshes.Replace("/", "\\")}\"";
+                        yield return $"\"/{lowerMeshes}\"";
+                    }
+                    
+                    if (upperMeshes != forward)
+                    {
+                        yield return $"\"{upperMeshes}\"";
+                        yield return $"\"\\{upperMeshes.Replace("/", "\\")}\"";
+                        yield return $"\"/{upperMeshes}\"";
+                    }
                 }
 
                 tmpFile = _manager.CreateFile();
-                var allVariants = onlyFiles.SelectMany(f => AllVariants((string) f)).ToList();
-                await tmpFile.Value.Path.WriteAllLinesAsync(allVariants, token);
-                
-
-                process.Arguments =
-                [
+                await tmpFile.Value.Path.WriteAllLinesAsync(onlyFiles.SelectMany(f => AllVariants((string)f)),
+                    token);
+                process.Arguments = new object[]
+                {
                     "x", "-bsp1", "-y", $"-o\"{dest}\"", source, $"@\"{tmpFile.Value.ToString()}\"", "-mmt=off"
-                ];
+                };
             }
             else
             {
@@ -391,6 +397,11 @@ public class FileExtractor
                 throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
             }
 
+            // Post-process: move files with backslashes in their names to correct subdirectories
+            await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
+
+            // Add small delay to ensure file system sync after extraction
+            await Task.Delay(100, token);
 
             
             job.Dispose();

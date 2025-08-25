@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
@@ -26,6 +27,8 @@ public class TexConvImageLoader : IImageLoader
 
     private readonly ProtonPrefixManager _protonManager;
     private readonly ILogger<TexConvImageLoader> _logger;
+    private readonly Dictionary<string, string> _tempFileMapping = new(); // temp file -> original file mapping
+    private readonly object _mappingLock = new();
 
     public TexConvImageLoader(TemporaryFileManager manager, ILogger<TexConvImageLoader> logger)
     {
@@ -70,6 +73,13 @@ public class TexConvImageLoader : IImageLoader
         try
         {
             var outFile = input.FileName.RelativeTo(outFolder.Path);
+            
+            // Add mapping for debugging
+            lock (_mappingLock)
+            {
+                _tempFileMapping[outFile.FileName.ToString()] = input.FileName.ToString();
+            }
+            
             await ConvertImage(input, outFolder.Path, width, height, mipMaps, format, input.Extension);
             await outFile.MoveToAsync(output, token: token, overwrite:true);
         }
@@ -90,6 +100,12 @@ public class TexConvImageLoader : IImageLoader
         {
             await input.CopyToAsync(fromFile.Path, token);
             var toFile = fromFile.Path.FileName.RelativeTo(toFolder.Path);
+            
+            // Add mapping for debugging (using temp file name as key since we don't have original)
+            lock (_mappingLock)
+            {
+                _tempFileMapping[toFile.FileName.ToString()] = $"STREAM_INPUT_{fromFile.Path.FileName}";
+            }
             
             await ConvertImage(fromFile.Path, toFolder.Path, width, height, mipMaps, format, type);
             
@@ -153,6 +169,24 @@ public class TexConvImageLoader : IImageLoader
 
         // Use Proton prefix manager for texconv.exe execution
         var ph = await _protonManager.CreateTexConvProcess(args);
+        
+        // Log the actual texconv command being executed for debugging
+        var commandString = $"proton run Tools\\texconv.exe {string.Join(" ", args.Select(arg => arg.ToString()))}";
+        
+        // Get original file name from mapping if available
+        string originalFileName = "UNKNOWN";
+        lock (_mappingLock)
+        {
+            if (_tempFileMapping.TryGetValue(from.FileName.ToString(), out var original))
+            {
+                originalFileName = original;
+            }
+        }
+        
+        _logger.LogDebug("Executing texconv command: {Command}", commandString);
+        _logger.LogDebug("Texture details: {TempFile} (original: {OriginalFile}) -> {Format} {Width}x{Height} {MipMaps} mipmaps", 
+            from.FileName, originalFileName, format, w, h, mipMaps);
+        
         await ph.Start();
     }
 

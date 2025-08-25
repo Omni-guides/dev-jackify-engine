@@ -29,6 +29,8 @@ public class ProcessHelper
     public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
     
     public string? WorkingDirectory { get; set; }
+    
+    public TimeSpan? Timeout { get; set; } = null;
 
     public async Task<int> Start()
     {
@@ -99,7 +101,33 @@ public class ProcessHelper
         }
 
 
-        var result = await finished.Task;
+        Task<int> resultTask = finished.Task;
+        
+        if (Timeout.HasValue)
+        {
+            var timeoutTask = Task.Delay(Timeout.Value);
+            var completedTask = await Task.WhenAny(resultTask, timeoutTask);
+            
+            if (completedTask == timeoutTask)
+            {
+                // Timeout occurred - kill the process
+                try
+                {
+                    if (!p.HasExited)
+                    {
+                        p.Kill(true); // Kill the process tree
+                    }
+                }
+                catch (Exception)
+                {
+                    // Ignore errors when killing the process
+                }
+                
+                throw new TimeoutException($"Process {Path} timed out after {Timeout.Value.TotalSeconds} seconds");
+            }
+        }
+        
+        var result = await resultTask;
         // Do this to make sure everything flushes
         p.WaitForExit();
         p.CancelErrorRead();

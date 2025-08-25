@@ -14,7 +14,7 @@ public struct TemporaryPath : IDisposable, IAsyncDisposable
 
     public void Dispose()
     {
-        Path.Delete();
+        // TEMPORARILY DISABLED: Path.Delete();
     }
 
     public override string ToString()
@@ -29,7 +29,7 @@ public struct TemporaryPath : IDisposable, IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
-        Path.Delete();
+        // TEMPORARILY DISABLED: Path.Delete();
         return ValueTask.CompletedTask;
     }
 }
