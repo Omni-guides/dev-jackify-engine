@@ -479,16 +479,14 @@ public abstract class AInstaller<T>
         var completedCount = 0;
         var nonManualCount = missing.Count(a => a.State is not Manual);
         
-        // Get the download resource for proper bandwidth monitoring (like Wabbajackify)
-        var downloadResource = _serviceProvider.GetRequiredService<IResource<DownloadDispatcher>>();
+        // Get ALL resources for system-wide bandwidth monitoring (like Wabbajackify)
+        var allResources = _serviceProvider.GetServices<IResource>().ToArray();
         var lastUpdateTime = startTime;
-        var lastTransferred = downloadResource?.StatusReport.Transferred ?? 0;
+        var lastTotalTransferred = allResources.Sum(r => r.StatusReport.Transferred);
         
-        // Debug logging to see what resource we're working with
-        _logger.LogDebug("Download resource type: {ResourceType}, Name: {ResourceName}, Initial Transferred: {InitialTransferred}", 
-            downloadResource?.GetType().Name ?? "null", 
-            downloadResource?.Name ?? "null", 
-            lastTransferred);
+        // Debug logging to see what resources we're working with
+        _logger.LogDebug("Monitoring {ResourceCount} resources for system-wide bandwidth. Initial total transferred: {InitialTransferred}", 
+            allResources.Length, lastTotalTransferred);
         var currentBandwidthMBps = 0.0;
         var smoothedBandwidthMBps = 0.0;
         var bandwidthReadings = new Queue<double>();
@@ -504,19 +502,19 @@ public abstract class AInstaller<T>
                 {
                     await Task.Delay(1000, pollingCts.Token); // Poll every 1 second like Wabbajackify
                     
-                    var now = DateTime.UtcNow;
-                    var currentTransferred = downloadResource?.StatusReport.Transferred ?? 0;
+                    var now = DateTime.Now; // Use DateTime.Now like Wabbajackify
+                    var currentTotalTransferred = allResources.Sum(r => r.StatusReport.Transferred);
                     var timeDiff = (now - lastUpdateTime).TotalSeconds;
                     
                     // Debug logging to see what's happening
-                    _logger.LogDebug("Resource monitoring: currentTransferred={CurrentTransferred}, lastTransferred={LastTransferred}, timeDiff={TimeDiff:F2}s", 
-                        currentTransferred, lastTransferred, timeDiff);
+                    _logger.LogDebug("System-wide monitoring: currentTotalTransferred={CurrentTotal}, lastTotalTransferred={LastTotal}, timeDiff={TimeDiff:F2}s", 
+                        currentTotalTransferred, lastTotalTransferred, timeDiff);
                     
-                    if (timeDiff > 0 && currentTransferred > lastTransferred)
+                    if (timeDiff > 0 && currentTotalTransferred > lastTotalTransferred)
                     {
-                        var bytesDiff = currentTransferred - lastTransferred;
+                        var bytesDiff = currentTotalTransferred - lastTotalTransferred;
                         currentBandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
-                        lastTransferred = currentTransferred;
+                        lastTotalTransferred = currentTotalTransferred;
                         lastUpdateTime = now;
                         
                         // Apply smoothing to reduce visual noise
