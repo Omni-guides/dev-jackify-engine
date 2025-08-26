@@ -479,6 +479,40 @@ public abstract class AInstaller<T>
         var downloadResource = _limiter as IResource;
         var lastUpdateTime = startTime;
         var lastTransferred = downloadResource?.StatusReport.Transferred ?? 0;
+        var currentBandwidthMBps = 0.0;
+        
+        // Set up polling task for real-time bandwidth updates (like Wabbajackify)
+        var pollingCts = new CancellationTokenSource();
+        var pollingTask = Task.Run(async () =>
+        {
+            while (!pollingCts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(1000, pollingCts.Token); // Poll every 1 second like Wabbajackify
+                    
+                    var now = DateTime.UtcNow;
+                    var currentTransferred = downloadResource?.StatusReport.Transferred ?? 0;
+                    var timeDiff = (now - lastUpdateTime).TotalSeconds;
+                    
+                    if (timeDiff > 0 && currentTransferred > lastTransferred)
+                    {
+                        var bytesDiff = currentTransferred - lastTransferred;
+                        currentBandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
+                        lastTransferred = currentTransferred;
+                        lastUpdateTime = now;
+                    }
+                    else
+                    {
+                        currentBandwidthMBps = 0.0;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }, pollingCts.Token);
 
         await missing
             .Shuffle()
@@ -488,28 +522,18 @@ public abstract class AInstaller<T>
                 var outputPath = _configuration.Downloads.Combine(archive.Name);
                 var hash = await DownloadArchive(archive, download, token, outputPath);
                 
-                // Update progress with proper bandwidth calculation (like Wabbajackify)
+                // Update progress with real-time bandwidth from polling task
                 Interlocked.Increment(ref completedCount);
                 
-                // Calculate real-time bandwidth from resource monitor
-                var now = DateTime.UtcNow;
-                var currentTransferred = downloadResource?.StatusReport.Transferred ?? 0;
-                var timeDiff = (now - lastUpdateTime).TotalSeconds;
-                var bandwidthMBps = 0.0;
-                
-                if (timeDiff > 0 && currentTransferred > lastTransferred)
-                {
-                    var bytesDiff = currentTransferred - lastTransferred;
-                    bandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
-                    lastTransferred = currentTransferred;
-                    lastUpdateTime = now;
-                }
-                
-                // Use single-line progress update with real-time bandwidth
-                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {bandwidthMBps:F1}MB/s");
+                // Use single-line progress update with current bandwidth
+                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {currentBandwidthMBps:F1}MB/s");
                 
                 UpdateProgress(1);
             });
+            
+        // Clean up polling task
+        pollingCts.Cancel();
+        try { await pollingTask; } catch (OperationCanceledException) { }
         
         // Clear the progress line after downloads complete
         ConsoleOutput.ClearProgressLine();
