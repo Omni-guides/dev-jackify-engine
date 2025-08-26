@@ -184,10 +184,15 @@ public class TexConvImageLoader : IImageLoader
         }
         
         _logger.LogDebug("Executing texconv command: {Command}", commandString);
-        _logger.LogDebug("Texture details: {TempFile} (original: {OriginalFile}) -> {Format} {Width}x{Height} {MipMaps} mipmaps", 
+        
+        // Use LogInformation for texture processing to ensure it's visible during hangs
+        _logger.LogInformation("TEXTURE_PROCESSING: {TempFile} (original: {OriginalFile}) -> {Format} {Width}x{Height} {MipMaps}mips", 
             from.FileName, originalFileName, format, w, h, mipMaps);
         
         await ph.Start();
+        
+        _logger.LogDebug("TEXTURE_COMPLETED: {TempFile} -> {Format} {Width}x{Height}", 
+            from.FileName, format, w, h);
     }
 
     public async Task ConvertImage(Stream from, ImageState state, Extension ext, AbsolutePath to)
