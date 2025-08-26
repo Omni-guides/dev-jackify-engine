@@ -479,21 +479,14 @@ public abstract class AInstaller<T>
         var completedCount = 0;
         var nonManualCount = missing.Count(a => a.State is not Manual);
         
-        // Get ALL resources for system-wide bandwidth monitoring (like Wabbajackify)
-        var allResources = _serviceProvider.GetServices<IResource>().ToArray();
+        // Get ONLY the Downloads resource for accurate bandwidth monitoring
+        var downloadResource = _serviceProvider.GetRequiredService<IResource<DownloadDispatcher>>();
         var lastUpdateTime = startTime;
-        var lastTotalTransferred = allResources.Sum(r => r.StatusReport.Transferred);
+        var lastTransferred = downloadResource.StatusReport.Transferred;
         
-        // Debug logging to see what resources we're working with
-        _logger.LogDebug("Monitoring {ResourceCount} resources for system-wide bandwidth. Initial total transferred: {InitialTransferred}", 
-            allResources.Length, lastTotalTransferred);
-        
-        // Log individual resource details for debugging
-        foreach (var resource in allResources)
-        {
-            _logger.LogDebug("Resource: {ResourceName} ({ResourceType}) - Initial transferred: {Transferred}", 
-                resource.Name, resource.GetType().Name, resource.StatusReport.Transferred);
-        }
+        // Debug logging to see what we're monitoring
+        _logger.LogDebug("Monitoring Downloads resource: {ResourceName} - Initial transferred: {InitialTransferred}", 
+            downloadResource.Name, lastTransferred);
         var currentBandwidthMBps = 0.0;
         var smoothedBandwidthMBps = 0.0;
         var bandwidthReadings = new Queue<double>();
@@ -509,25 +502,27 @@ public abstract class AInstaller<T>
                 {
                     await Task.Delay(500, pollingCts.Token); // Poll every 0.5 seconds for more responsive updates
                     
-                    var now = DateTime.Now; // Use DateTime.Now like Wabbajackify
-                    var currentTotalTransferred = allResources.Sum(r => r.StatusReport.Transferred);
+                    var now = DateTime.Now;
+                    var currentTransferred = downloadResource.StatusReport.Transferred;
                     var timeDiff = (now - lastUpdateTime).TotalSeconds;
                     
                     // Debug logging to see what's happening
-                    _logger.LogDebug("System-wide monitoring: currentTotalTransferred={CurrentTotal}, lastTotalTransferred={LastTotal}, timeDiff={TimeDiff:F2}s", 
-                        currentTotalTransferred, lastTotalTransferred, timeDiff);
+                    _logger.LogDebug("Downloads monitoring: currentTransferred={Current}, lastTransferred={Last}, timeDiff={TimeDiff:F2}s", 
+                        currentTransferred, lastTransferred, timeDiff);
                     
-                    // Log individual resource contributions for debugging
-                    foreach (var resource in allResources)
+                    if (timeDiff > 0 && currentTransferred > lastTransferred)
                     {
-                        _logger.LogDebug("Resource {ResourceName}: {Transferred} bytes", resource.Name, resource.StatusReport.Transferred);
-                    }
-                    
-                    if (timeDiff > 0 && currentTotalTransferred > lastTotalTransferred)
-                    {
-                        var bytesDiff = currentTotalTransferred - lastTotalTransferred;
+                        var bytesDiff = currentTransferred - lastTransferred;
                         currentBandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
-                        lastTotalTransferred = currentTotalTransferred;
+                        
+                        // Sanity check: cap bandwidth at 50MB/s to prevent unrealistic values
+                        if (currentBandwidthMBps > 50.0)
+                        {
+                            _logger.LogWarning("Bandwidth calculation seems unrealistic ({BandwidthMBps:F1}MB/s), capping at 50MB/s", currentBandwidthMBps);
+                            currentBandwidthMBps = 50.0;
+                        }
+                        
+                        lastTransferred = currentTransferred;
                         lastUpdateTime = now;
                         
                         // Apply smoothing to reduce visual noise
