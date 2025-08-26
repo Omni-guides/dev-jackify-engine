@@ -5,6 +5,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ## Version 0.3.6 - 2024-08-26
 ### Minor UX Improvements
 * **BSA Building Progress**: Fixed multi-line output to use single-line progress display for cleaner console output
+* **BSA Progress Counter**: Added BSA counter (3/12) and file count (127 files) to provide better progress feedback
 * **SystemParameters Warning**: Suppressed "No SystemParameters set" warning to debug level (only shows with `--debug`)
 * **Finished Message**: Changed from "Finished Installation" to "Finished Modlist Installation" for clarity
 
