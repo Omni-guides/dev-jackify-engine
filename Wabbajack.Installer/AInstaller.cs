@@ -119,7 +119,11 @@ public abstract class AInstaller<T>
         _statusFormatter = formatter ?? (x => x.ToString());
         
         // Add blank line before section header for better visual separation
-        Console.WriteLine();
+        // Only add blank line for major sections, not for sub-sections like "Installing Included Files"
+        if (!statusText.Contains("Included Files") && !statusText.Contains("BSAs"))
+        {
+            Console.WriteLine();
+        }
         
         // Format: === Configuring Installer ===
         var sectionHeader = $"=== {statusText} ===";
