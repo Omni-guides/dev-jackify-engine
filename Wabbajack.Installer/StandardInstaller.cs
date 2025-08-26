@@ -357,11 +357,15 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         _logger.LogInformation("{Duration} Building {bsasCount} bsa files", ConsoleOutput.GetDurationTimestamp(), bsas.Count);
         NextStep("Installing", "Building BSAs", bsas.Count);
 
+        int currentBsaIndex = 0;
         foreach (var bsa in bsas)
         {
+            currentBsaIndex++;
             UpdateProgress(1);
-            // Use single-line progress instead of multi-line logging
-            ConsoleOutput.PrintProgressWithDuration($"Building {bsa.To.FileName}");
+            int totalFiles = bsa.FileStates.Length;
+            
+            // Use single-line progress with BSA counter and file count
+            ConsoleOutput.PrintProgressWithDuration($"Building BSA {currentBsaIndex}/{bsas.Count}: {bsa.To.FileName} ({totalFiles} files)");
             
             var sourceDir = _configuration.Install.Combine(Consts.BSACreationDir, bsa.TempID);
 
@@ -373,8 +377,8 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                 return fs;
             }).ToList();
 
-            // Update progress for writing phase
-            ConsoleOutput.PrintProgressWithDuration($"Writing {bsa.To.FileName}");
+            // Update progress for writing phase with BSA counter
+            ConsoleOutput.PrintProgressWithDuration($"Writing BSA {currentBsaIndex}/{bsas.Count}: {bsa.To.FileName}");
             var outPath = _configuration.Install.Combine(bsa.To);
 
             await using (var outStream = outPath.Open(FileMode.Create, FileAccess.Write, FileShare.None))
@@ -386,8 +390,8 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
             await FileHashCache.FileHashWriteCache(outPath, bsa.Hash);
 
-            // Update progress for verification phase
-            ConsoleOutput.PrintProgressWithDuration($"Verifying {bsa.To.FileName}");
+            // Update progress for verification phase with BSA counter
+            ConsoleOutput.PrintProgressWithDuration($"Verifying BSA {currentBsaIndex}/{bsas.Count}: {bsa.To.FileName}");
             var reader = await BSADispatch.Open(outPath);
             var results = await reader.Files.PMapAllBatchedAsync(_limiter, async state =>
             {
