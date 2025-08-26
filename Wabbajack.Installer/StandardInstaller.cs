@@ -177,7 +177,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         await _wjClient.SendMetric(MetricNames.FinishInstall, ModList.Name);
 
         NextStep(Consts.StepFinished, "Finished", 1);
-        _logger.LogInformation("Finished Installation");
+        _logger.LogInformation("Finished Modlist Installation");
         Console.WriteLine(); // Add newline after progress line
         return InstallResult.Succeeded;
     }
@@ -455,7 +455,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         // Don't remap files for Native Game Compiler games
         if (!profilesPath.DirectoryExists()) return;
         if (_configuration.SystemParameters == null)
-            _logger.LogWarning("No SystemParameters set, ignoring ini settings for system parameters");
+            _logger.LogDebug("No SystemParameters set, ignoring ini settings for system parameters");
 
         var config = new IniParserConfiguration {AllowDuplicateKeys = true, AllowDuplicateSections = true};
         config.CommentRegex = new Regex(@"^(#|;)(.*)");
