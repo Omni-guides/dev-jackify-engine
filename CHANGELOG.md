@@ -3,11 +3,24 @@
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
 ## Version 0.3.6 - 2024-08-26
+### Professional Bandwidth Monitoring System
+* **Network Interface Monitoring**: Implemented system-level bandwidth monitoring using actual network interface statistics
+* **5-Second Rolling Window**: Professional-grade bandwidth calculation with smooth averaging (matches Steam/browser standards)
+* **1-Second UI Updates**: Responsive progress display that updates every second for optimal user experience
+* **Accurate Speed Display**: Shows real network utilization (e.g., "5.9MB/s") based on actual bytes transferred
+* **Concurrent Download Support**: Properly measures combined throughput from multiple simultaneous downloads
+
 ### Minor UX Improvements
 * **BSA Building Progress**: Fixed multi-line output to use single-line progress display for cleaner console output
 * **BSA Progress Counter**: Added BSA counter (3/12) and file count (127 files) to provide better progress feedback
 * **SystemParameters Warning**: Suppressed "No SystemParameters set" warning to debug level (only shows with `--debug`)
 * **Finished Message**: Changed from "Finished Installation" to "Finished Modlist Installation" for clarity
+
+### Technical Implementation
+* **BandwidthMonitor Class**: New professional monitoring system that samples network interface every 500ms
+* **Primary Interface Detection**: Automatically detects main internet connection for accurate measurements
+* **Thread-Safe Operation**: Concurrent access handling with proper cleanup and resource management
+* **Sanity Checking**: Prevents unrealistic bandwidth values with reasonable maximum limits
 
 ## Version 0.3.5 - 2024-08-26
 ### Major UX Overhaul

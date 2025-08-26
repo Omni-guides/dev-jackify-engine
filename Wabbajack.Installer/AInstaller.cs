@@ -474,81 +474,32 @@ public abstract class AInstaller<T>
             }
         }
 
-        // Set up progress tracking for bulk downloads using proper resource monitoring (like Wabbajackify)
-        var startTime = DateTime.UtcNow;
+        // Professional bandwidth monitoring setup
+        var bandwidthMonitor = new BandwidthMonitor(sampleWindowSeconds: 5); // 5-second rolling window
         var completedCount = 0;
         var nonManualCount = missing.Count(a => a.State is not Manual);
         
-        // Get ONLY the Downloads resource for accurate bandwidth monitoring
-        var downloadResource = _serviceProvider.GetRequiredService<IResource<DownloadDispatcher>>();
-        var lastUpdateTime = startTime;
-        var lastTransferred = downloadResource.StatusReport.Transferred;
-        
-        // Debug logging to see what we're monitoring
-        _logger.LogDebug("Monitoring Downloads resource: {ResourceName} - Initial transferred: {InitialTransferred}", 
-            downloadResource.Name, lastTransferred);
-        var currentBandwidthMBps = 0.0;
-        var smoothedBandwidthMBps = 0.0;
-        var bandwidthReadings = new Queue<double>();
-        const int smoothingWindow = 2; // Shorter smoothing window for more responsiveness
-        
-        // Set up polling task for real-time bandwidth updates (like Wabbajackify)
-        var pollingCts = new CancellationTokenSource();
-        var pollingTask = Task.Run(async () =>
+        // Update display every 1 second for professional feel
+        var displayCts = new CancellationTokenSource();
+        var displayTask = Task.Run(async () =>
         {
-            while (!pollingCts.Token.IsCancellationRequested)
+            while (!displayCts.Token.IsCancellationRequested)
             {
                 try
                 {
-                    await Task.Delay(500, pollingCts.Token); // Poll every 0.5 seconds for more responsive updates
+                    await Task.Delay(1000, displayCts.Token); // Update every 1 second
                     
-                    var now = DateTime.Now;
-                    var currentTransferred = downloadResource.StatusReport.Transferred;
-                    var timeDiff = (now - lastUpdateTime).TotalSeconds;
+                    var currentBandwidthMBps = bandwidthMonitor.GetCurrentBandwidthMBps();
+                    var currentCompleted = Interlocked.CompareExchange(ref completedCount, 0, 0);
                     
-                    // Debug logging to see what's happening
-                    _logger.LogDebug("Downloads monitoring: currentTransferred={Current}, lastTransferred={Last}, timeDiff={TimeDiff:F2}s", 
-                        currentTransferred, lastTransferred, timeDiff);
-                    
-                    if (timeDiff > 0 && currentTransferred > lastTransferred)
-                    {
-                        var bytesDiff = currentTransferred - lastTransferred;
-                        currentBandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
-                        
-                        // Sanity check: cap bandwidth at 50MB/s to prevent unrealistic values
-                        if (currentBandwidthMBps > 50.0)
-                        {
-                            _logger.LogWarning("Bandwidth calculation seems unrealistic ({BandwidthMBps:F1}MB/s), capping at 50MB/s", currentBandwidthMBps);
-                            currentBandwidthMBps = 50.0;
-                        }
-                        
-                        lastTransferred = currentTransferred;
-                        lastUpdateTime = now;
-                        
-                        // Apply smoothing to reduce visual noise
-                        bandwidthReadings.Enqueue(currentBandwidthMBps);
-                        if (bandwidthReadings.Count > smoothingWindow)
-                        {
-                            bandwidthReadings.Dequeue();
-                        }
-                        smoothedBandwidthMBps = bandwidthReadings.Average();
-                        
-                        _logger.LogDebug("Raw bandwidth: {BandwidthMBps:F1}MB/s (bytesDiff: {BytesDiff}, timeDiff: {TimeDiff:F2}s)", 
-                            currentBandwidthMBps, bytesDiff, timeDiff);
-                    }
-                    else
-                    {
-                        currentBandwidthMBps = 0.0;
-                        // Don't add 0 readings to smoothing queue to avoid dragging down the average
-                        _logger.LogDebug("No bandwidth change detected");
-                    }
+                    ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({currentCompleted}/{nonManualCount}) - {currentBandwidthMBps:F1}MB/s");
                 }
                 catch (OperationCanceledException)
                 {
                     break;
                 }
             }
-        }, pollingCts.Token);
+        }, displayCts.Token);
 
         await missing
             .Shuffle()
@@ -556,23 +507,24 @@ public abstract class AInstaller<T>
             .PDoAll(async archive =>
             {
                 var outputPath = _configuration.Downloads.Combine(archive.Name);
-                var hash = await DownloadArchive(archive, download, token, outputPath);
                 
-                // Update progress with real-time bandwidth from polling task
+                // Download using standard method - bandwidth monitor measures network interface directly
+                var hash = await _downloadDispatcher.Download(archive, outputPath, token);
+                
+                // Update completed count
                 Interlocked.Increment(ref completedCount);
-                
-                // Use single-line progress update with raw bandwidth (no smoothing) to see real values
-                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {currentBandwidthMBps:F1}MB/s");
-                
                 UpdateProgress(1);
             });
             
-        // Clean up polling task
-        pollingCts.Cancel();
-        try { await pollingTask; } catch (OperationCanceledException) { }
+        // Clean up display task
+        displayCts.Cancel();
+        try { await displayTask; } catch (OperationCanceledException) { }
         
         // Clear the progress line after downloads complete
         ConsoleOutput.ClearProgressLine();
+        
+        // Clean up bandwidth monitor
+        bandwidthMonitor.Dispose();
     }
 
     private async Task SendDownloadMetrics(List<Archive> missing)
