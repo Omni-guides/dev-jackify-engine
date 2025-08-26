@@ -487,10 +487,17 @@ public abstract class AInstaller<T>
         // Debug logging to see what resources we're working with
         _logger.LogDebug("Monitoring {ResourceCount} resources for system-wide bandwidth. Initial total transferred: {InitialTransferred}", 
             allResources.Length, lastTotalTransferred);
+        
+        // Log individual resource details for debugging
+        foreach (var resource in allResources)
+        {
+            _logger.LogDebug("Resource: {ResourceName} ({ResourceType}) - Initial transferred: {Transferred}", 
+                resource.Name, resource.GetType().Name, resource.StatusReport.Transferred);
+        }
         var currentBandwidthMBps = 0.0;
         var smoothedBandwidthMBps = 0.0;
         var bandwidthReadings = new Queue<double>();
-        const int smoothingWindow = 3; // Number of readings to average for smoothing
+        const int smoothingWindow = 2; // Shorter smoothing window for more responsiveness
         
         // Set up polling task for real-time bandwidth updates (like Wabbajackify)
         var pollingCts = new CancellationTokenSource();
@@ -500,7 +507,7 @@ public abstract class AInstaller<T>
             {
                 try
                 {
-                    await Task.Delay(1000, pollingCts.Token); // Poll every 1 second like Wabbajackify
+                    await Task.Delay(500, pollingCts.Token); // Poll every 0.5 seconds for more responsive updates
                     
                     var now = DateTime.Now; // Use DateTime.Now like Wabbajackify
                     var currentTotalTransferred = allResources.Sum(r => r.StatusReport.Transferred);
@@ -525,7 +532,8 @@ public abstract class AInstaller<T>
                         }
                         smoothedBandwidthMBps = bandwidthReadings.Average();
                         
-                        _logger.LogDebug("Bandwidth: {BandwidthMBps:F1}MB/s", smoothedBandwidthMBps);
+                        _logger.LogDebug("Bandwidth: {BandwidthMBps:F1}MB/s (raw: {RawMBps:F1}MB/s, readings: {ReadingsCount})", 
+                            smoothedBandwidthMBps, currentBandwidthMBps, bandwidthReadings.Count);
                     }
                     else
                     {
