@@ -184,9 +184,7 @@ public class TexConvImageLoader : IImageLoader
         }
         
         _logger.LogDebug("Executing texconv command: {Command}", commandString);
-        
-        // Use LogInformation for texture processing to ensure it's visible during hangs
-        _logger.LogInformation("TEXTURE_PROCESSING: {TempFile} (original: {OriginalFile}) -> {Format} {Width}x{Height} {MipMaps}mips", 
+        _logger.LogDebug("TEXTURE_PROCESSING: {TempFile} (original: {OriginalFile}) -> {Format} {Width}x{Height} {MipMaps}mips", 
             from.FileName, originalFileName, format, w, h, mipMaps);
         
         await ph.Start();
