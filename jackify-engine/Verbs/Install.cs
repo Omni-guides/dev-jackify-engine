@@ -126,7 +126,7 @@ public class Install
             State = state!
         };
 
-        // Set up progress reporting
+        // Set up progress reporting with single-line updates
         var startTime = DateTime.UtcNow;
         Action<long, long> progressCallback = (processed, total) =>
         {
@@ -135,11 +135,14 @@ public class Install
             var totalMB = total / 1024.0 / 1024.0;
             var processedMB = processed / 1024.0 / 1024.0;
             
-            _logger.LogInformation("Downloading {FileName} ({ProcessedMB:F1}/{TotalMB:F1}MB) - {SpeedMBps:F1}MB/s", 
-                archive.Name, processedMB, totalMB, speedMBps);
+            // Use single-line progress update instead of multi-line logging
+            ConsoleOutput.PrintProgressWithDuration($"Downloading {archive.Name} ({processedMB:F1}/{totalMB:F1}MB) - {speedMBps:F1}MB/s");
         };
 
         await _dispatcher.Download(archive, wabbajack, token, progressCallback);
+        
+        // Clear the progress line after download completes
+        ConsoleOutput.ClearProgressLine();
 
         return true;
     }
