@@ -517,6 +517,12 @@ public abstract class AInstaller<T>
                     _logger.LogDebug("System-wide monitoring: currentTotalTransferred={CurrentTotal}, lastTotalTransferred={LastTotal}, timeDiff={TimeDiff:F2}s", 
                         currentTotalTransferred, lastTotalTransferred, timeDiff);
                     
+                    // Log individual resource contributions for debugging
+                    foreach (var resource in allResources)
+                    {
+                        _logger.LogDebug("Resource {ResourceName}: {Transferred} bytes", resource.Name, resource.StatusReport.Transferred);
+                    }
+                    
                     if (timeDiff > 0 && currentTotalTransferred > lastTotalTransferred)
                     {
                         var bytesDiff = currentTotalTransferred - lastTotalTransferred;
@@ -532,8 +538,8 @@ public abstract class AInstaller<T>
                         }
                         smoothedBandwidthMBps = bandwidthReadings.Average();
                         
-                        _logger.LogDebug("Bandwidth: {BandwidthMBps:F1}MB/s (raw: {RawMBps:F1}MB/s, readings: {ReadingsCount})", 
-                            smoothedBandwidthMBps, currentBandwidthMBps, bandwidthReadings.Count);
+                        _logger.LogDebug("Raw bandwidth: {BandwidthMBps:F1}MB/s (bytesDiff: {BytesDiff}, timeDiff: {TimeDiff:F2}s)", 
+                            currentBandwidthMBps, bytesDiff, timeDiff);
                     }
                     else
                     {
@@ -560,8 +566,8 @@ public abstract class AInstaller<T>
                 // Update progress with real-time bandwidth from polling task
                 Interlocked.Increment(ref completedCount);
                 
-                // Use single-line progress update with smoothed bandwidth for better visual experience
-                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {smoothedBandwidthMBps:F1}MB/s");
+                // Use single-line progress update with raw bandwidth (no smoothing) to see real values
+                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {currentBandwidthMBps:F1}MB/s");
                 
                 UpdateProgress(1);
             });
