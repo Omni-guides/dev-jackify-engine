@@ -25,8 +25,8 @@ namespace Wabbajack.Hashing.PHash
             _logger = logger;
             _protonDetector = new ProtonDetector(NullLogger<ProtonDetector>.Instance);
             
-            // Create prefix in ~/Jackify/.prefix-<UUID>
-            _prefixBaseDir = KnownFolders.EntryPoint.Parent.Parent.Combine("Jackify");
+            // Create prefix in ~/Jackify/.prefix-<UUID> (user home, not dev workspace)
+            _prefixBaseDir = KnownFolders.HomeFolder.Combine("Jackify");
             _currentPrefix = _prefixBaseDir.Combine($".prefix-{Guid.NewGuid():N}");
         }
 
