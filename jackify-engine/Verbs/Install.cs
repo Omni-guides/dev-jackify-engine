@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wabbajack.CLI.Builder;
+using Wabbajack.Common;
 using Wabbajack.Downloaders;
 using Wabbajack.Downloaders.GameFile;
 using Wabbajack.DTOs;

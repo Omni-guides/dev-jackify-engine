@@ -470,12 +470,15 @@ public abstract class AInstaller<T>
             }
         }
 
-        // Set up progress tracking for bulk downloads with simple bandwidth calculation
+        // Set up progress tracking for bulk downloads using proper resource monitoring (like Wabbajackify)
         var startTime = DateTime.UtcNow;
         var completedCount = 0;
         var nonManualCount = missing.Count(a => a.State is not Manual);
-        var totalBytesDownloaded = 0L;
+        
+        // Get the download resource for proper bandwidth monitoring
+        var downloadResource = _limiter as IResource;
         var lastUpdateTime = startTime;
+        var lastTransferred = downloadResource?.StatusReport.Transferred ?? 0;
 
         await missing
             .Shuffle()
@@ -485,16 +488,24 @@ public abstract class AInstaller<T>
                 var outputPath = _configuration.Downloads.Combine(archive.Name);
                 var hash = await DownloadArchive(archive, download, token, outputPath);
                 
-                // Update progress with simple bandwidth calculation
+                // Update progress with proper bandwidth calculation (like Wabbajackify)
                 Interlocked.Increment(ref completedCount);
-                Interlocked.Add(ref totalBytesDownloaded, archive.Size);
                 
-                // Calculate bandwidth based on total bytes downloaded over time
+                // Calculate real-time bandwidth from resource monitor
                 var now = DateTime.UtcNow;
-                var elapsed = (now - startTime).TotalSeconds;
-                var bandwidthMBps = elapsed > 0 ? (totalBytesDownloaded / 1024.0 / 1024.0) / elapsed : 0;
+                var currentTransferred = downloadResource?.StatusReport.Transferred ?? 0;
+                var timeDiff = (now - lastUpdateTime).TotalSeconds;
+                var bandwidthMBps = 0.0;
                 
-                // Use single-line progress update with calculated bandwidth
+                if (timeDiff > 0 && currentTransferred > lastTransferred)
+                {
+                    var bytesDiff = currentTransferred - lastTransferred;
+                    bandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
+                    lastTransferred = currentTransferred;
+                    lastUpdateTime = now;
+                }
+                
+                // Use single-line progress update with real-time bandwidth
                 ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {bandwidthMBps:F1}MB/s");
                 
                 UpdateProgress(1);
