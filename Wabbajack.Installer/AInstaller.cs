@@ -492,11 +492,14 @@ public abstract class AInstaller<T>
                 var speedMBps = elapsed.TotalSeconds > 0 ? (processedBytes / 1024.0 / 1024.0) / elapsed.TotalSeconds : 0;
                 var nonManualCount = missing.Count(a => a.State is not Manual);
                 
-                _logger.LogInformation("Downloading Mod Archives ({Completed}/{Total}) - {SpeedMBps:F1}MB/s", 
-                    completedCount, nonManualCount, speedMBps);
+                // Use single-line progress update instead of multi-line logging
+                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {speedMBps:F1}MB/s");
                 
                 UpdateProgress(1);
             });
+        
+        // Clear the progress line after downloads complete
+        ConsoleOutput.ClearProgressLine();
     }
 
     private async Task SendDownloadMetrics(List<Archive> missing)

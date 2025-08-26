@@ -54,7 +54,7 @@ public class DownloadDispatcher
         using var downloadScope = _logger.BeginScope("Downloading {Name}", a.Name);
         using var job = await _limiter.Begin("Downloading " + a.Name, a.Size, token);
         var hash = await Download(a, dest, job, token, proxy);
-        _logger.LogInformation("Finished downloading {name}. Hash: {hash}; Size: {size}/{expectedSize}", a.Name, hash, dest.Size().ToFileSizeString(), a.Size.ToFileSizeString());
+        _logger.LogDebug("Finished downloading {name}. Hash: {hash}; Size: {size}/{expectedSize}", a.Name, hash, dest.Size().ToFileSizeString(), a.Size.ToFileSizeString());
         return hash;
     }
 
@@ -78,7 +78,7 @@ public class DownloadDispatcher
         }
         
         var hash = await Download(a, dest, job, token, proxy);
-        _logger.LogInformation("Finished downloading {name}. Hash: {hash}; Size: {size}/{expectedSize}", a.Name, hash, dest.Size().ToFileSizeString(), a.Size.ToFileSizeString());
+        _logger.LogDebug("Finished downloading {name}. Hash: {hash}; Size: {size}/{expectedSize}", a.Name, hash, dest.Size().ToFileSizeString(), a.Size.ToFileSizeString());
         return hash;
     }
 

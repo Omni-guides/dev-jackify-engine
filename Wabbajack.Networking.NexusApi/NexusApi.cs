@@ -183,7 +183,7 @@ public class NexusApi
                     metaData.Runtime = reset;
         }
 
-        _logger.LogInformation("Nexus API call finished: {Runtime} - Remaining Limit: {RemainingLimit}",
+        _logger.LogDebug("Nexus API call finished: {Runtime} - Remaining Limit: {RemainingLimit}",
             metaData.Runtime, Math.Max(metaData.DailyRemaining, metaData.HourlyRemaining));
 
         return metaData;
