@@ -525,7 +525,7 @@ public abstract class AInstaller<T>
                         }
                         smoothedBandwidthMBps = bandwidthReadings.Average();
                         
-                        _logger.LogDebug("Bandwidth calculated: {BandwidthMBps:F1}MB/s, Smoothed: {SmoothedMBps:F1}MB/s", currentBandwidthMBps, smoothedBandwidthMBps);
+                        _logger.LogDebug("Bandwidth: {BandwidthMBps:F1}MB/s", smoothedBandwidthMBps);
                     }
                     else
                     {

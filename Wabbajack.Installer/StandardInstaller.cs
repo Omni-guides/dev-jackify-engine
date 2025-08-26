@@ -255,10 +255,14 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         _logger.LogInformation("{Duration} Looking for downloads by size", ConsoleOutput.GetDurationTimestamp());
         var bySize = UnoptimizedArchives.ToLookup(x => x.Size);
 
-        _logger.LogInformation("{Duration} Writing Metas", ConsoleOutput.GetDurationTimestamp());
-        await _configuration.Downloads.EnumerateFiles()
+        var downloadFiles = _configuration.Downloads.EnumerateFiles()
             .Where(download => download.Extension != Ext.Meta)
-            .PDoAll(async download =>
+            .ToArray();
+        
+        _logger.LogInformation("{Duration} Writing Metas ({Count} files)", ConsoleOutput.GetDurationTimestamp(), downloadFiles.Length);
+        
+        var completedCount = 0;
+        await downloadFiles.PDoAll(async download =>
             {
                 var metaFile = download.WithExtension(Ext.Meta);
 
@@ -293,7 +297,6 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                                 // add removed=true to files not part of the Modlist so they don't show up in MO2
                                 parsed["General"]["removed"] = "true";
 
-                                _logger.LogInformation("Writing {FileName}", metaFile.FileName);
                                 parsed.SaveIniFile(metaFile);
                             }
                         }
@@ -334,8 +337,8 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                     meta = AddInstalled(_downloadDispatcher.MetaIni(archive));
                 }
 
-                _logger.LogInformation("Writing {FileName}", metaFile.FileName);
                 await metaFile.WriteAllLinesAsync(meta, token);
+                Interlocked.Increment(ref completedCount);
             });
     }
 
@@ -352,6 +355,9 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
     private async Task BuildBSAs(CancellationToken token)
     {
+        // Add blank line before Building BSAs section
+        Console.WriteLine();
+        
         var bsas = ModList.Directives.OfType<CreateBSA>().ToList();
         _logger.LogInformation("{Duration} Generating debug caches", ConsoleOutput.GetDurationTimestamp());
         var indexedByDestination = UnoptimizedDirectives.ToDictionary(d => d.To);
