@@ -479,6 +479,12 @@ public abstract class AInstaller<T>
         var downloadResource = _limiter as IResource;
         var lastUpdateTime = startTime;
         var lastTransferred = downloadResource?.StatusReport.Transferred ?? 0;
+        
+        // Debug logging to see what resource we're working with
+        _logger.LogDebug("Download resource type: {ResourceType}, Name: {ResourceName}, Initial Transferred: {InitialTransferred}", 
+            downloadResource?.GetType().Name ?? "null", 
+            downloadResource?.Name ?? "null", 
+            lastTransferred);
         var currentBandwidthMBps = 0.0;
         
         // Set up polling task for real-time bandwidth updates (like Wabbajackify)
@@ -495,16 +501,23 @@ public abstract class AInstaller<T>
                     var currentTransferred = downloadResource?.StatusReport.Transferred ?? 0;
                     var timeDiff = (now - lastUpdateTime).TotalSeconds;
                     
+                    // Debug logging to see what's happening
+                    _logger.LogDebug("Resource monitoring: currentTransferred={CurrentTransferred}, lastTransferred={LastTransferred}, timeDiff={TimeDiff:F2}s", 
+                        currentTransferred, lastTransferred, timeDiff);
+                    
                     if (timeDiff > 0 && currentTransferred > lastTransferred)
                     {
                         var bytesDiff = currentTransferred - lastTransferred;
                         currentBandwidthMBps = (bytesDiff / 1024.0 / 1024.0) / timeDiff;
                         lastTransferred = currentTransferred;
                         lastUpdateTime = now;
+                        
+                        _logger.LogDebug("Bandwidth calculated: {BandwidthMBps:F1}MB/s", currentBandwidthMBps);
                     }
                     else
                     {
                         currentBandwidthMBps = 0.0;
+                        _logger.LogDebug("No bandwidth change detected");
                     }
                 }
                 catch (OperationCanceledException)
