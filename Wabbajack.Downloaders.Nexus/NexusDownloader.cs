@@ -130,7 +130,7 @@ public class NexusDownloader : ADownloader<Nexus>, IUrlDownloader
             try
             {
                 var urls = await _api.DownloadLink(state.Game.MetaData().NexusName!, state.ModID, state.FileID, token);
-                _logger.LogInformation("Downloading Nexus File: {game}|{modid}|{fileid}", state.Game, state.ModID,
+                _logger.LogDebug("Downloading Nexus File: {game}|{modid}|{fileid}", state.Game, state.ModID,
                     state.FileID);
                 foreach (var link in urls.info)
                 {
