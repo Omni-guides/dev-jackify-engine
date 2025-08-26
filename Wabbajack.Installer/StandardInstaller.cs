@@ -43,9 +43,9 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         InstallerConfiguration config,
         IGameLocator gameLocator, FileExtractor.FileExtractor extractor,
         DTOSerializer jsonSerializer, Context vfs, FileHashCache fileHashCache,
-        DownloadDispatcher downloadDispatcher, ParallelOptions parallelOptions, IResource<IInstaller> limiter, Client wjClient, IImageLoader imageLoader) :
+        DownloadDispatcher downloadDispatcher, ParallelOptions parallelOptions, IResource<IInstaller> limiter, Client wjClient, IImageLoader imageLoader, IServiceProvider serviceProvider) :
         base(logger, config, gameLocator, extractor, jsonSerializer, vfs, fileHashCache, downloadDispatcher,
-            parallelOptions, limiter, wjClient, imageLoader)
+            parallelOptions, limiter, wjClient, imageLoader, serviceProvider)
     {
         MaxSteps = 14;
     }
@@ -67,7 +67,8 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             provider.GetRequiredService<ParallelOptions>(),
             provider.GetRequiredService<IResource<IInstaller>>(),
             provider.GetRequiredService<Client>(),
-            texConvImageLoader);
+            texConvImageLoader,
+            provider);
     }
 
     public override async Task<InstallResult> Begin(CancellationToken token)

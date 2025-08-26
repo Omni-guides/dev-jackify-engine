@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Wabbajack.Common;
 using Wabbajack.Downloaders;
@@ -67,6 +68,7 @@ public abstract class AInstaller<T>
 
     public Action<StatusUpdate>? OnStatusUpdate;
     protected readonly IResource<IInstaller> _limiter;
+    protected readonly IServiceProvider _serviceProvider;
     private Func<long, string> _statusFormatter = x => x.ToString();
 
 
@@ -77,9 +79,11 @@ public abstract class AInstaller<T>
         ParallelOptions parallelOptions,
         IResource<IInstaller> limiter,
         Client wjClient,
-        IImageLoader imageLoader)
+        IImageLoader imageLoader,
+        IServiceProvider serviceProvider)
     {
         _limiter = limiter;
+        _serviceProvider = serviceProvider;
         _manager = new TemporaryFileManager(config.Install.Combine("__temp__"));
         ExtractedModlistFolder = _manager.CreateFolder();
         _configuration = config;
@@ -486,6 +490,9 @@ public abstract class AInstaller<T>
             downloadResource?.Name ?? "null", 
             lastTransferred);
         var currentBandwidthMBps = 0.0;
+        var smoothedBandwidthMBps = 0.0;
+        var bandwidthReadings = new Queue<double>();
+        const int smoothingWindow = 3; // Number of readings to average for smoothing
         
         // Set up polling task for real-time bandwidth updates (like Wabbajackify)
         var pollingCts = new CancellationTokenSource();
@@ -512,11 +519,20 @@ public abstract class AInstaller<T>
                         lastTransferred = currentTransferred;
                         lastUpdateTime = now;
                         
-                        _logger.LogDebug("Bandwidth calculated: {BandwidthMBps:F1}MB/s", currentBandwidthMBps);
+                        // Apply smoothing to reduce visual noise
+                        bandwidthReadings.Enqueue(currentBandwidthMBps);
+                        if (bandwidthReadings.Count > smoothingWindow)
+                        {
+                            bandwidthReadings.Dequeue();
+                        }
+                        smoothedBandwidthMBps = bandwidthReadings.Average();
+                        
+                        _logger.LogDebug("Bandwidth calculated: {BandwidthMBps:F1}MB/s, Smoothed: {SmoothedMBps:F1}MB/s", currentBandwidthMBps, smoothedBandwidthMBps);
                     }
                     else
                     {
                         currentBandwidthMBps = 0.0;
+                        // Don't add 0 readings to smoothing queue to avoid dragging down the average
                         _logger.LogDebug("No bandwidth change detected");
                     }
                 }
@@ -538,8 +554,8 @@ public abstract class AInstaller<T>
                 // Update progress with real-time bandwidth from polling task
                 Interlocked.Increment(ref completedCount);
                 
-                // Use single-line progress update with current bandwidth
-                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {currentBandwidthMBps:F1}MB/s");
+                // Use single-line progress update with smoothed bandwidth for better visual experience
+                ConsoleOutput.PrintProgressWithDuration($"Downloading Mod Archives ({completedCount}/{nonManualCount}) - {smoothedBandwidthMBps:F1}MB/s");
                 
                 UpdateProgress(1);
             });
