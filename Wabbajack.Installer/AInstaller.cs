@@ -475,8 +475,8 @@ public abstract class AInstaller<T>
         var completedCount = 0;
         var nonManualCount = missing.Count(a => a.State is not Manual);
         
-        // Get the download resource for proper bandwidth monitoring
-        var downloadResource = _limiter as IResource;
+        // Get the download resource for proper bandwidth monitoring (like Wabbajackify)
+        var downloadResource = _serviceProvider.GetRequiredService<IResource<DownloadDispatcher>>();
         var lastUpdateTime = startTime;
         var lastTransferred = downloadResource?.StatusReport.Transferred ?? 0;
         
