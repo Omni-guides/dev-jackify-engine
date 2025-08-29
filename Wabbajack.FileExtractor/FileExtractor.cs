@@ -386,7 +386,7 @@ public class FileExtractor
             {
                 var patternContent = await tmpFile.Value.Path.ReadAllTextAsync();
                 var lines = patternContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                _logger.LogWarning("EXTRACTION DEBUG: {archive} - Pattern file {patternFile} has {lines} lines, size {size} bytes", 
+                _logger.LogDebug("EXTRACTION DEBUG: {archive} - Pattern file {patternFile} has {lines} lines, size {size} bytes", 
                     source.FileName, tmpFile.Value.Path.FileName, lines.Length, patternContent.Length);
             }
 
@@ -425,7 +425,7 @@ public class FileExtractor
             }
             
             var extractedFiles = dest.Path.EnumerateFiles().ToList();
-            _logger.LogWarning("POST-EXTRACTION: {archive} extracted {count} files to {dest}", 
+            _logger.LogDebug("POST-EXTRACTION: {archive} extracted {count} files to {dest}", 
                 source.FileName, extractedFiles.Count, dest.Path);
 
             // Post-process: move files with backslashes in their names to correct subdirectories

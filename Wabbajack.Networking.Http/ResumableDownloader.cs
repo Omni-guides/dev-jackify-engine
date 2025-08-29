@@ -59,7 +59,9 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
                 throw;
             }
 
-            return await DownloadAndHash(msg, filePath, job, token, retry--);
+            // Clone the HttpRequestMessage for retry to avoid "already sent" exception
+            var clonedMsg = CloneHttpRequestMessage(msg);
+            return await DownloadAndHash(clonedMsg, filePath, job, token, retry - 1);
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
         {
@@ -72,7 +74,9 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
                 throw;
             }
 
-            return await DownloadAndHash(msg, filePath, job, token, retry--, true);
+            // Clone the HttpRequestMessage for retry to avoid "already sent" exception
+            var clonedMsg = CloneHttpRequestMessage(msg);
+            return await DownloadAndHash(clonedMsg, filePath, job, token, retry - 1, true);
         }
         catch (Exception ex)
         {
@@ -156,5 +160,23 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
         {
             return filePath.Open(FileMode.Create, FileAccess.Write, FileShare.None);
         }
+    }
+
+    /// <summary>
+    /// Clones an HttpRequestMessage to avoid "already sent" exceptions during retries
+    /// </summary>
+    private static HttpRequestMessage CloneHttpRequestMessage(HttpRequestMessage original)
+    {
+        var cloned = new HttpRequestMessage(original.Method, original.RequestUri);
+        
+        // Copy headers
+        foreach (var header in original.Headers)
+        {
+            cloned.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+        
+        // Don't copy content - it can only be read once and causes issues
+        
+        return cloned;
     }
 }
