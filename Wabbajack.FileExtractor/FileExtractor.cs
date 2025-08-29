@@ -235,6 +235,9 @@ public class FileExtractor
         if (omod.HasEntryFile(OMODEntryFileType.PluginsCRC))
             omod.ExtractFiles(false, dest.Path.ToString());
 
+        // Fix OMOD files with backslashes in names (Linux path issue)
+        await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
+
         var files = omod.GetDataFiles();
         if (omod.HasEntryFile(OMODEntryFileType.PluginsCRC))
             files.UnionWith(omod.GetPluginFiles());
