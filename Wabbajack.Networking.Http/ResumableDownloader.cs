@@ -99,9 +99,19 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
 
         var responseContentLength = response.Content.Headers.ContentLength;
 
-        if (responseContentLength != null && responseContentLength > fileStream.Length)
+        if (responseContentLength != null) 
         {
-            fileStream.SetLength(responseContentLength.Value);
+            var expectedTotalSize = startingPosition + responseContentLength.Value;
+            
+            if (responseContentLength.Value == 0)
+            {
+                return filePath;
+            }
+            
+            if (expectedTotalSize > fileStream.Length)
+            {
+                fileStream.SetLength(expectedTotalSize);
+            }
         }
 
         var responseStream = await response.Content.ReadAsStreamAsync(token);

@@ -10,7 +10,7 @@ public static class ServiceExtensions
 {
     public static void AddResumableHttpDownloader(this IServiceCollection services)
     {
-        services.AddHttpClient("ResumableClient").ConfigureHttpClient(c => c.Timeout = TimeSpan.FromMinutes(5));
+        services.AddHttpClient("ResumableClient").ConfigureHttpClient(c => c.Timeout = TimeSpan.FromHours(1));
         services.AddSingleton<IHttpDownloader, ResumableDownloader>();
         services.RemoveAll<IHttpMessageHandlerBuilderFilter>();
     }

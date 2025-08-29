@@ -567,6 +567,8 @@ public abstract class AInstaller<T>
             if (result == DownloadResult.Update)
                 await destination.Value.MoveToAsync(destination.Value.Parent.Combine(archive.Hash.ToHex()), true,
                     token);
+                    
+            return true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

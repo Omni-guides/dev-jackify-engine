@@ -71,6 +71,11 @@ public static class StreamExtensions
 
         await outputStream.FlushAsync(token);
 
+        if (finalHash == 0)
+        {
+            finalHash = hasher.FinalizeHashValueInternal(ReadOnlySpan<byte>.Empty);
+        }
+
         return new Hash(finalHash);
     }
     
@@ -122,6 +127,11 @@ public static class StreamExtensions
                 await pendingWrite;
                 break;
             }
+        }
+
+        if (finalHash == 0)
+        {
+            finalHash = hasher.FinalizeHashValueInternal(ReadOnlySpan<byte>.Empty);
         }
         
         return new Hash(finalHash);

@@ -98,6 +98,10 @@ public class FileHashCache
 
         if (result.LastModified == file.LastModifiedUtc().ToFileTimeUtc())
         {
+            if (result.Hash.ToBase64() == "AAAAAAAAAAA=")
+            {
+                return default;
+            }
             return result.Hash;
         }
 
