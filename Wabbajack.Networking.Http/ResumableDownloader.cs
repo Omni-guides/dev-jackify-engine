@@ -48,7 +48,7 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
 
             return await HashFile(downloadedFilePath, token);
         }
-        catch (Exception ex) when (ex is SocketException || ex is IOException)
+        catch (Exception ex) when (ex is SocketException || ex is IOException || ex is HttpRequestException)
         {
             _logger.LogWarning(ex, "Failed to download '{name}' due to network error. Retrying...", filePath.FileName.ToString());
 

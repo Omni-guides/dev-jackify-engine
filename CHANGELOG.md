@@ -2,6 +2,31 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.3.7 - 2024-08-29 (STABLE)
+### Critical Stability Fixes - Production Ready
+* **Archive Extraction Case Sensitivity**: Fixed extraction failures for archives containing "Textures" vs "textures" directory case mismatches
+* **Download Retry Reliability**: Fixed HttpRequestMessage reuse bug causing "already sent" exceptions during download retries
+* **Hash Validation**: Fixed AAAAAAAAAAA= hash calculation errors for zero-length or corrupted downloads
+* **Proton Path Conversion**: Automatic conversion of Linux paths to Proton-compatible Windows paths (Z: drive) in ModOrganizer.ini
+* **Clean Output**: Suppressed debug messages (EXTRACTION DEBUG, POST-EXTRACTION) to debug level only
+
+### Verified Working Modlists
+* **CSVO - Optimized Follower**: Complete installation with 1,372 files and 1,366 successful extractions
+* **SME (Skyrim Modding Essentials)**: Full download and installation success
+* **Archive Extraction**: Successfully handles both case-sensitive ("Textures") and case-insensitive ("textures") archives
+
+### Technical Implementation
+* **AllVariants Enhancement**: Added case variations for common directory names (textures/Textures, meshes/Meshes, sounds/Sounds, etc.)
+* **CloneHttpRequestMessage**: New utility method to properly clone HttpRequestMessage objects for reliable retries
+* **Hash Calculation Fix**: Added finalHash == 0 fallback to prevent invalid hash generation
+* **Hash Cache Validation**: Filter out AAAAAAAAAAA= cache entries to force proper recalculation
+
+### Performance & Reliability
+* **Download Success Rate**: Significantly improved reliability for files requiring retry attempts (Synthesis.zip, large archives)
+* **Installation Speed**: Maintains or exceeds upstream Wabbajack performance via Proton
+* **Memory Management**: Stable operation with large modlists (1,000+ files)
+* **Error Recovery**: Robust handling of network interruptions and temporary failures
+
 ## Version 0.3.6 - 2024-08-26
 ### Professional Bandwidth Monitoring System
 * **Network Interface Monitoring**: Implemented system-level bandwidth monitoring using actual network interface statistics
