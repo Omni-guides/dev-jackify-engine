@@ -6,6 +6,8 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ### Critical Stability Fixes - Production Ready
 * **Archive Extraction Case Sensitivity**: Fixed extraction failures for archives containing "Textures" vs "textures" directory case mismatches
 * **Download Retry Reliability**: Fixed HttpRequestMessage reuse bug causing "already sent" exceptions during download retries
+* **HttpIOException Handling**: Fixed "response ended prematurely" network errors now properly retry instead of failing
+* **OMOD Extraction for Oblivion**: Fixed Linux path handling where OMOD files were created with backslashes in filenames
 * **Hash Validation**: Fixed AAAAAAAAAAA= hash calculation errors for zero-length or corrupted downloads
 * **Proton Path Conversion**: Automatic conversion of Linux paths to Proton-compatible Windows paths (Z: drive) in ModOrganizer.ini
 * **Clean Output**: Suppressed debug messages (EXTRACTION DEBUG, POST-EXTRACTION) to debug level only
@@ -13,11 +15,14 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ### Verified Working Modlists
 * **CSVO - Optimized Follower**: Complete installation with 1,372 files and 1,366 successful extractions
 * **SME (Skyrim Modding Essentials)**: Full download and installation success
+* **APW Oblivion**: Full installation success with OMOD extraction working correctly
 * **Archive Extraction**: Successfully handles both case-sensitive ("Textures") and case-insensitive ("textures") archives
 
 ### Technical Implementation
 * **AllVariants Enhancement**: Added case variations for common directory names (textures/Textures, meshes/Meshes, sounds/Sounds, etc.)
 * **CloneHttpRequestMessage**: New utility method to properly clone HttpRequestMessage objects for reliable retries
+* **HttpIOException Retry**: Added HttpRequestException to download retry catch block for network interruptions
+* **OMOD Post-Processing**: Added MoveFilesWithBackslashesToSubdirs method to fix Linux OMOD extraction
 * **Hash Calculation Fix**: Added finalHash == 0 fallback to prevent invalid hash generation
 * **Hash Cache Validation**: Filter out AAAAAAAAAAA= cache entries to force proper recalculation
 
