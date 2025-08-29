@@ -324,28 +324,46 @@ public class FileExtractor
                 {
                     var forward = input.Replace("\\", "/");
                     
-                    // Basic variants with different slashes
-                    yield return $"\"{input}\"";
-                    yield return $"\"\\{input}\"";
-                    yield return $"\"{forward}\"";
-                    yield return $"\"/{forward}\"";
+                    // Common case variations for directory names
+                    var caseVariants = new List<string> { input, forward };
                     
-                    // Case variants - handle the common Data/meshes vs Data/Meshes issue
-                    var lowerMeshes = forward.Replace("Data/meshes", "Data/Meshes");
-                    var upperMeshes = forward.Replace("Data/meshes", "Data/meshes");
-                    
-                    if (lowerMeshes != forward)
+                    // Add case variations for common directory names
+                    var commonDirs = new Dictionary<string, string>
                     {
-                        yield return $"\"{lowerMeshes}\"";
-                        yield return $"\"\\{lowerMeshes.Replace("/", "\\")}\"";
-                        yield return $"\"/{lowerMeshes}\"";
+                        { "textures", "Textures" },
+                        { "meshes", "Meshes" },
+                        { "sounds", "Sounds" },
+                        { "music", "Music" },
+                        { "scripts", "Scripts" },
+                        { "interface", "Interface" }
+                    };
+                    
+                    foreach (var (lower, upper) in commonDirs)
+                    {
+                        if (input.Contains(lower, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Replace with proper case
+                            var upperCase = input.Replace(lower, upper, StringComparison.OrdinalIgnoreCase);
+                            var upperCaseForward = upperCase.Replace("\\", "/");
+                            caseVariants.Add(upperCase);
+                            caseVariants.Add(upperCaseForward);
+                            
+                            // Also try lowercase variant
+                            var lowerCase = input.Replace(upper, lower, StringComparison.OrdinalIgnoreCase);
+                            var lowerCaseForward = lowerCase.Replace("\\", "/");
+                            caseVariants.Add(lowerCase);
+                            caseVariants.Add(lowerCaseForward);
+                        }
                     }
                     
-                    if (upperMeshes != forward)
+                    // Remove duplicates and generate quoted patterns
+                    var uniqueVariants = caseVariants.Distinct().ToList();
+                    
+                    foreach (var variant in uniqueVariants)
                     {
-                        yield return $"\"{upperMeshes}\"";
-                        yield return $"\"\\{upperMeshes.Replace("/", "\\")}\"";
-                        yield return $"\"/{upperMeshes}\"";
+                        yield return $"\"{variant}\"";
+                        yield return $"\"\\{variant}\"";
+                        yield return $"\"/{variant}\"";
                     }
                 }
 
@@ -363,6 +381,14 @@ public class FileExtractor
             }
 
             _logger.LogTrace("{prog} {args}", process.Path, process.Arguments);
+            
+            if (tmpFile != null)
+            {
+                var patternContent = await tmpFile.Value.Path.ReadAllTextAsync();
+                var lines = patternContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                _logger.LogWarning("EXTRACTION DEBUG: {archive} - Pattern file {patternFile} has {lines} lines, size {size} bytes", 
+                    source.FileName, tmpFile.Value.Path.FileName, lines.Length, patternContent.Length);
+            }
 
             var totalSize = source.Size();
             var lastPercent = 0;
@@ -394,8 +420,13 @@ public class FileExtractor
             // Check for 7zip extraction errors
             if (exitCode != 0)
             {
+                _logger.LogError("7zip failed with exit code {exitCode} for {archive}", exitCode, source.FileName);
                 throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
             }
+            
+            var extractedFiles = dest.Path.EnumerateFiles().ToList();
+            _logger.LogWarning("POST-EXTRACTION: {archive} extracted {count} files to {dest}", 
+                source.FileName, extractedFiles.Count, dest.Path);
 
             // Post-process: move files with backslashes in their names to correct subdirectories
             await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
