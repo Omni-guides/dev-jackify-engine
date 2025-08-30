@@ -308,6 +308,30 @@ public class FileExtractor
 
             _logger.LogDebug("Extracting {Source}", source.FileName);
 
+            // For ZIP files on Linux, use unzip with -UU flag to handle encoding properly
+            bool isZipFile = source.Extension == Extension.FromPath(".zip");
+            
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && isZipFile)
+            {
+                var unzipProcess = new ProcessHelper
+                {
+                    Path = @"Extractors\linux-x64\unzip".ToRelativePath().RelativeTo(KnownFolders.EntryPoint)
+                };
+                
+                unzipProcess.Arguments = ["-o", "-UU", source.ToString(), "-d", dest.ToString()];
+                
+                _logger.LogTrace("{prog} {args}", unzipProcess.Path, unzipProcess.Arguments);
+                
+                var unzipExitCode = await unzipProcess.Start();
+                if (unzipExitCode != 0)
+                {
+                    _logger.LogError("unzip failed with exit code {exitCode} for {archive}", unzipExitCode, source.FileName);
+                    throw new InvalidOperationException($"unzip extraction failed with exit code {unzipExitCode} for {source.FileName}");
+                }
+                
+                // Skip to post-processing for unzip
+                goto PostProcess;
+            }
 
             var initialPath = "";
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -427,6 +451,7 @@ public class FileExtractor
                 throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
             }
             
+            PostProcess:
             var extractedFiles = dest.Path.EnumerateFiles().ToList();
             _logger.LogDebug("POST-EXTRACTION: {archive} extracted {count} files to {dest}", 
                 source.FileName, extractedFiles.Count, dest.Path);
@@ -442,12 +467,21 @@ public class FileExtractor
             var results = await dest.Path.EnumerateFiles()
                 .SelectAsync(async f =>
                 {
-                    var path = f.RelativeTo(dest.Path);
-                    if (!shouldExtract(path)) return ((RelativePath, T)) default;
-                    var file = new ExtractedNativeFile(f);
-                    var mapResult = await mapfn(path, file);
-                    f.Delete();
-                    return (path, mapResult);
+                    try
+                    {
+                        var path = f.RelativeTo(dest.Path);
+                        if (!shouldExtract(path)) return ((RelativePath, T)) default;
+                        var file = new ExtractedNativeFile(f);
+                        var mapResult = await mapfn(path, file);
+                        f.Delete();
+                        return (path, mapResult);
+                    }
+                    catch (Exception ex) when (ex is FileNotFoundException || ex is DirectoryNotFoundException || 
+                                              ex is UnauthorizedAccessException || ex is ArgumentException)
+                    {
+                        _logger.LogWarning("Skipping file with invalid characters: {file} ({error})", f, ex.Message);
+                        return ((RelativePath, T)) default;
+                    }
                 })
                 .Where(d => d.Item1 != default)
                 .ToDictionary(d => d.Item1, d => d.Item2);

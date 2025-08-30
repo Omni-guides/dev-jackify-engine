@@ -325,9 +325,29 @@ public static class AbsolutePathExtensions
     public static IEnumerable<AbsolutePath> EnumerateFiles(this AbsolutePath path, string pattern = "*",
         bool recursive = true)
     {
-        return Directory.EnumerateFiles(path.ToString(), pattern,
-                recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
-            .Select(file => file.ToAbsolutePath());
+        try
+        {
+            return Directory.EnumerateFiles(path.ToString(), pattern,
+                    recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                .Where(file => !string.IsNullOrEmpty(file))
+                .Select(file => file.ToAbsolutePath());
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return Enumerable.Empty<AbsolutePath>();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Enumerable.Empty<AbsolutePath>();
+        }
+        catch (ArgumentException)
+        {
+            return Enumerable.Empty<AbsolutePath>();
+        }
+        catch (IOException)
+        {
+            return Enumerable.Empty<AbsolutePath>();
+        }
     }
 
 
