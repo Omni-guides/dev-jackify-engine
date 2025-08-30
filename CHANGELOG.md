@@ -2,6 +2,25 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.3.8 - 2024-08-30 (STABLE)
+### Critical Archive Compatibility Fix
+* **ZIP Encoding Support**: Fixed sanity check errors for ZIP archives containing non-ASCII filenames (international characters)
+* **InfoZIP Integration**: Added bundled unzip binary with -UU flag for proper raw byte handling of filenames
+* **Encoding Robustness**: Added error handling for file enumeration failures with corrupted UTF-8 sequences
+* **International Character Support**: Successfully extracts archives with Cyrillic, accented, and other international characters
+* **Self-Contained Distribution**: Maintains zero external dependencies by bundling unzip with existing extractors
+
+### Technical Implementation
+* **Linux ZIP Detection**: Automatically uses unzip instead of 7zz for .zip files on Linux to preserve filename encoding
+* **Raw Byte Preservation**: Uses unzip -UU flag to handle filenames as raw bytes, matching Windows filesystem behavior
+* **Graceful Error Recovery**: File enumeration failures are caught and logged rather than causing installation crashes
+* **Backward Compatibility**: No impact on existing ZIP archives that were working correctly with 7zz
+
+### Verified Working Archives
+* **International Music Mods**: Successfully extracts archives with Cyrillic filenames (Tavernmаirseаil.xwm, nd10_himinbjörg.xwm)
+* **All Previous Archives**: Maintains compatibility with existing ASCII and UTF-8 encoded ZIP files
+* **Mixed Character Sets**: Handles archives with combination of ASCII and international characters
+
 ## Version 0.3.7 - 2024-08-29 (STABLE)
 ### Critical Stability Fixes - Production Ready
 * **Archive Extraction Case Sensitivity**: Fixed extraction failures for archives containing "Textures" vs "textures" directory case mismatches
