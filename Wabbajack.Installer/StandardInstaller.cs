@@ -134,9 +134,11 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         if (token.IsCancellationRequested) return InstallResult.Cancelled;
 
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
-        if (missing.Count > 0)
+        var nonManualMissing = missing.Where(a => a.State is not Manual).ToList();
+        
+        if (nonManualMissing.Count > 0)
         {
-            foreach (var a in missing)
+            foreach (var a in nonManualMissing)
                 _logger.LogCritical("Unable to download {name} ({primaryKeyString})", a.Name,
                     a.State.PrimaryKeyString);
             _logger.LogCritical("Cannot continue, was unable to download one or more archives");

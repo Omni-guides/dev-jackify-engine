@@ -16,6 +16,7 @@ using Wabbajack.DTOs;
 using Wabbajack.DTOs.BSA.FileStates;
 using Wabbajack.DTOs.Directives;
 using Wabbajack.DTOs.DownloadStates;
+using Wabbajack.DTOs.Interventions;
 using Wabbajack.DTOs.JsonConverters;
 using Wabbajack.FileExtractor.ExtractedFiles;
 using Wabbajack.Hashing.PHash;
@@ -577,6 +578,11 @@ public abstract class AInstaller<T>
         catch (NotImplementedException) when (archive.State is GameFileSource)
         {
             _logger.LogError("Missing game file {name}. This could be caused by missing DLC or a modified installation.", archive.Name);
+        }
+        catch (ManualDownloadRequiredException)
+        {
+            // Manual downloads are handled by the intervention handler, not here
+            // Don't log this as an error since it's expected behavior
         }
         catch (Exception ex)
         {

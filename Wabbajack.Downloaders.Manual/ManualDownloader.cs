@@ -28,14 +28,13 @@ public class ManualDownloader : ADownloader<DTOs.DownloadStates.Manual>, IProxya
     
     public override async Task<Hash> Download(Archive archive, DTOs.DownloadStates.Manual state, AbsolutePath destination, IJob job, CancellationToken token)
     {
-        _logger.LogInformation("Starting manual download of {Url}", state.Url);
-
         var intervention = new ManualDownload(archive);
         _interventionHandler.Raise(intervention);
-        var browserState = await intervention.Task;
-
-        var msg = browserState.ToHttpRequestMessage();
-        return await _downloader.Download(msg, destination, job, token);
+        
+        // For CLI mode, we don't actually download manual downloads
+        // The intervention handler will collect them and show a summary at the end
+        // Throw an exception to indicate this download requires manual intervention
+        throw new ManualDownloadRequiredException($"Manual download required: {archive.Name}");
     }
 
 

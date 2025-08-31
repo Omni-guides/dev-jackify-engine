@@ -12,10 +12,12 @@ using Wabbajack.Downloaders;
 using Wabbajack.Downloaders.GameFile;
 using Wabbajack.DTOs;
 using Wabbajack.DTOs.JsonConverters;
+using Wabbajack.DTOs.Interventions;
 using Wabbajack.Installer;
 using Wabbajack.Networking.WabbajackClientApi;
 using Wabbajack.Paths;
 using Wabbajack.Paths.IO;
+using Wabbajack.Services.OSIntegrated;
 using Wabbajack.VFS;
 
 namespace Wabbajack.CLI.Verbs;
@@ -87,7 +89,50 @@ public class Install
 
         var result = await installer.Begin(token);
 
-        return result == InstallResult.Succeeded ? 0 : 2;
+        // Check for manual downloads and print summary if any were encountered
+        var interventionHandler = _serviceProvider.GetService(typeof(IUserInterventionHandler)) as CLIUserInterventionHandler;
+        if (interventionHandler != null && interventionHandler.GetManualDownloads().Any())
+        {
+            var manualDownloads = interventionHandler.GetManualDownloads();
+            
+            _logger.LogInformation("");
+            _logger.LogInformation("╔══════════════════════════════════════════════════════════════════════════════╗");
+            _logger.LogInformation("║                           MANUAL DOWNLOADS REQUIRED                          ║");
+            _logger.LogInformation("╚══════════════════════════════════════════════════════════════════════════════╝");
+            _logger.LogInformation("");
+            _logger.LogInformation("The following {Count} files require manual download. Please download each file and place it in your downloads directory, then run the installation again.", manualDownloads.Count);
+            _logger.LogInformation("");
+            _logger.LogInformation("Downloads directory: {DownloadsPath}", downloads);
+            _logger.LogInformation("");
+            
+            for (int i = 0; i < manualDownloads.Count; i++)
+            {
+                var manualDownload = manualDownloads[i];
+                var url = manualDownload.Archive.State.PrimaryKeyString;
+                
+                // Extract just the URL part from the state string
+                if (url.Contains("|"))
+                {
+                    url = url.Split('|').Last();
+                }
+                
+                _logger.LogInformation("{Number}. {FileName}", i + 1, manualDownload.Archive.Name);
+                _logger.LogInformation("    URL: {Url}", url);
+                _logger.LogInformation("");
+            }
+            
+            _logger.LogInformation("After downloading all files, run the installation command again.");
+            _logger.LogInformation("");
+            return 1; // Return error code to indicate manual downloads are needed
+        }
+
+        // Handle different install results
+        return result switch
+        {
+            InstallResult.Succeeded => 0,  // Success
+            InstallResult.DownloadFailed => 1,  // Manual downloads needed
+            _ => 2  // Other errors
+        };
     }
 
     private async Task<bool> DownloadMachineUrl(string machineUrl, AbsolutePath wabbajack, CancellationToken token)
