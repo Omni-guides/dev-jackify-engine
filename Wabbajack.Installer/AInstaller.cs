@@ -309,8 +309,8 @@ public abstract class AInstaller<T>
                     totalSizeStr = $"{totalSizeMB:F1}MB";
                 }
                 
-                var fileProgressMessage = $"{ConsoleOutput.GetDurationTimestamp()} Installing files {processedFiles}/{totalFiles} ({processedSizeStr}/{totalSizeStr}) - Converting textures: {processedTextures}/{totalTextures}";
-                Console.Write($"\r{fileProgressMessage}");
+                var fileProgressMessage = $"Installing files {processedFiles}/{totalFiles} ({processedSizeStr}/{totalSizeStr}) - Converting textures: {processedTextures}/{totalTextures}";
+                ConsoleOutput.PrintProgressWithDuration(fileProgressMessage);
                 
                 var destPath = file.To.RelativeTo(_configuration.Install);
                 switch (file)
@@ -361,8 +361,8 @@ public abstract class AInstaller<T>
                             textureTotalSizeStr = $"{textureTotalSizeMB:F1}MB";
                         }
                         
-                        var textureProgressMessage = $"{ConsoleOutput.GetDurationTimestamp()} Installing files {processedFiles}/{totalFiles} ({textureProcessedSizeStr}/{textureTotalSizeStr}) - Converting textures: {processedTextures}/{totalTextures}";
-                        Console.Write($"\r{textureProgressMessage}");
+                        var textureProgressMessage = $"Installing files {processedFiles}/{totalFiles} ({textureProcessedSizeStr}/{textureTotalSizeStr}) - Converting textures: {processedTextures}/{totalTextures}";
+                        ConsoleOutput.PrintProgressWithDuration(textureProgressMessage);
                         
                         // Only log individual texture recompression in debug mode
                         _logger.LogDebug("Recompressing {Filename}", tt.To.FileName);

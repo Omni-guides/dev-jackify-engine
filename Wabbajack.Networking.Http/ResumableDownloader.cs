@@ -120,23 +120,24 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
 
         var responseStream = await response.Content.ReadAsStreamAsync(token);
 
-        long reportProgressThreshold = 10 * 1024 * 1024; // Report progress every 100MB
-        bool shouldReportProgress = job.Size > reportProgressThreshold; // Reporting progress on small files just generates strain on the UI
+        long reportProgressThreshold = 10 * 1024 * 1024; // Report progress every 10MB
+        bool shouldReportProgress = job.Size > reportProgressThreshold;
 
-        int reportEveryXBytesProcessed = (int) job.Size / 100; // Report progress every 1% of the file
+        long reportEveryXBytesProcessed = Math.Max(1024 * 1024, job.Size.Value / 100); // Report every 1MB or 1% of file, whichever is larger
         long bytesProcessed = startingPosition;
+        long lastReportedBytes = startingPosition;
 
-        var buffer = new byte[128 * 1024];
+        var buffer = new byte[2 * 1024 * 1024]; // 2MB buffer for better throughput
         int bytesRead;
         while ((bytesRead = await responseStream.ReadAsync(buffer, token)) > 0)
         {
             await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), token);
             bytesProcessed += bytesRead;
 
-            if (shouldReportProgress && bytesProcessed >= reportEveryXBytesProcessed)
+            if (shouldReportProgress && (bytesProcessed - lastReportedBytes) >= reportEveryXBytesProcessed)
             {
                 job.ReportNoWait((int)bytesProcessed);
-                bytesProcessed = 0;
+                lastReportedBytes = bytesProcessed;
             }
         }
 

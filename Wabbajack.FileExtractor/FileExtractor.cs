@@ -308,30 +308,9 @@ public class FileExtractor
 
             _logger.LogDebug("Extracting {Source}", source.FileName);
 
-            // For ZIP files on Linux, use unzip with -UU flag to handle encoding properly
-            bool isZipFile = source.Extension == Extension.FromPath(".zip");
-            
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && isZipFile)
-            {
-                var unzipProcess = new ProcessHelper
-                {
-                    Path = @"Extractors\linux-x64\unzip".ToRelativePath().RelativeTo(KnownFolders.EntryPoint)
-                };
-                
-                unzipProcess.Arguments = ["-o", "-UU", source.ToString(), "-d", dest.ToString()];
-                
-                _logger.LogTrace("{prog} {args}", unzipProcess.Path, unzipProcess.Arguments);
-                
-                var unzipExitCode = await unzipProcess.Start();
-                if (unzipExitCode != 0)
-                {
-                    _logger.LogError("unzip failed with exit code {exitCode} for {archive}", unzipExitCode, source.FileName);
-                    throw new InvalidOperationException($"unzip extraction failed with exit code {unzipExitCode} for {source.FileName}");
-                }
-                
-                // Skip to post-processing for unzip
-                goto PostProcess;
-            }
+            // Temporarily disabled: Use 7zip for all archives to debug path conflicts
+            // bool isZipFile = source.Extension == Extension.FromPath(".zip");
+            // if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && isZipFile) { ... }
 
             var initialPath = "";
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -479,8 +458,8 @@ public class FileExtractor
                     catch (Exception ex) when (ex is FileNotFoundException || ex is DirectoryNotFoundException || 
                                               ex is UnauthorizedAccessException || ex is ArgumentException)
                     {
-                        _logger.LogWarning("Skipping file with invalid characters: {file} ({error})", f, ex.Message);
-                        return ((RelativePath, T)) default;
+                        _logger.LogError("Failed to process extracted file: {file} ({error})", f, ex.Message);
+                        throw;
                     }
                 })
                 .Where(d => d.Item1 != default)
