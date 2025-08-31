@@ -552,11 +552,16 @@ public abstract class AInstaller<T>
 
             if (hash != archive.Hash)
             {
-                _logger.LogError("Downloaded hash {Downloaded} does not match expected hash: {Expected}", hash,
-                    archive.Hash);
                 if (destination!.Value.FileExists())
                 {
+                    _logger.LogError("Hash mismatch for existing file {name}: expected {Expected}, got {Downloaded}. The file appears to be corrupted or outdated.", 
+                        archive.Name, archive.Hash, hash);
                     destination!.Value.Delete();
+                }
+                else
+                {
+                    _logger.LogError("Downloaded hash {Downloaded} does not match expected hash: {Expected}", hash,
+                        archive.Hash);
                 }
 
                 return false;

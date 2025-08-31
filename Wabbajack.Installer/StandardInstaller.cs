@@ -141,7 +141,15 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             foreach (var a in nonManualMissing)
                 _logger.LogCritical("Unable to download {name} ({primaryKeyString})", a.Name,
                     a.State.PrimaryKeyString);
-            _logger.LogCritical("Cannot continue, was unable to download one or more archives");
+            
+            if (nonManualMissing.Count == 1)
+            {
+                _logger.LogCritical("Cannot continue, was unable to download 1 archive. This may be due to network issues, server problems, or corrupted existing files.");
+            }
+            else
+            {
+                _logger.LogCritical("Cannot continue, was unable to download {count} archives. This may be due to network issues, server problems, or corrupted existing files.", nonManualMissing.Count);
+            }
 
             return InstallResult.DownloadFailed;
         }
