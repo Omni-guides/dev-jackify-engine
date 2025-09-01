@@ -2,7 +2,14 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
-## Version 0.3.10 - 2024-08-31 (STABLE)
+## Version 0.3.10 - 2025-09-01 (STABLE)
+### HTTP Rate Limiting Fix - Download Stall Resolution
+* **Configurable Resource Settings**: Fixed hardcoded 4 concurrent HTTP requests causing 20-30s download stalls
+* **Upstream Compatibility**: Now uses `GetResourceSettings("Web Requests")` matching upstream Wabbajack behavior
+* **Dynamic Concurrency**: Automatically scales to `Environment.ProcessorCount` (typically 8-16) concurrent requests
+* **Download Performance**: Eliminates .wabbajack file download stalls and improves overall download reliability
+* **Resource Management**: Both HTTP client and Wabbajack client now use configurable settings instead of hardcoded limits
+
 ### Critical Disk Space Fix - Temporary File Cleanup
 * **__temp__ Directory Cleanup**: Fixed critical bug where 17GB+ temporary files were left behind after installation
 * **Automatic Cleanup**: Added proper cleanup of `__temp__` directory containing extracted modlist files and processing artifacts
@@ -18,6 +25,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Better Error Messages**: More helpful final summaries with possible causes and specific counts
 
 ### Technical Implementation
+* **Resource Settings Integration**: Updated ServiceExtensions to use configurable resource settings for all HTTP operations
 * **Temporary File Management**: Added proper cleanup of `__temp__` directory in installation flow
 * **Progress Integration**: Integrated cleanup into existing progress system with proper step counting
 * **CLIUserInterventionHandler**: New handler that collects manual downloads without blocking installation
@@ -27,12 +35,13 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Upstream Compatibility**: Matches upstream Wabbajack's approach to hash mismatch handling
 
 ### User Experience
+* **Download Reliability**: No more 20-30 second stalls during .wabbajack file downloads
 * **Disk Space Efficiency**: No more wasted disk space from leftover temporary files
 * **Clear Action Items**: Step-by-step numbered list of required downloads with exact URLs
 * **No Confusion**: Clear distinction between manual downloads, hash mismatches, and network failures
 
 
-## Version 0.3.8 - 2024-08-30 (STABLE)
+## Version 0.3.8 - 2025-08-30 (STABLE)
 ### Critical Archive Compatibility Fix
 * **ZIP Encoding Support**: Fixed sanity check errors for ZIP archives containing non-ASCII filenames (international characters)
 * **InfoZIP Integration**: Added bundled unzip binary with -UU flag for proper raw byte handling of filenames
@@ -51,7 +60,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **All Previous Archives**: Maintains compatibility with existing ASCII and UTF-8 encoded ZIP files
 * **Mixed Character Sets**: Handles archives with combination of ASCII and international characters
 
-## Version 0.3.7 - 2024-08-29 (STABLE)
+## Version 0.3.7 - 2025-08-29 (STABLE)
 ### Critical Stability Fixes - Production Ready
 * **Archive Extraction Case Sensitivity**: Fixed extraction failures for archives containing "Textures" vs "textures" directory case mismatches
 * **Download Retry Reliability**: Fixed HttpRequestMessage reuse bug causing "already sent" exceptions during download retries
@@ -81,7 +90,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Memory Management**: Stable operation with large modlists (1,000+ files)
 * **Error Recovery**: Robust handling of network interruptions and temporary failures
 
-## Version 0.3.6 - 2024-08-26
+## Version 0.3.6 - 2025-08-26
 ### Professional Bandwidth Monitoring System
 * **Network Interface Monitoring**: Implemented system-level bandwidth monitoring using actual network interface statistics
 * **5-Second Rolling Window**: Professional-grade bandwidth calculation with smooth averaging (matches Steam/browser standards)
@@ -101,7 +110,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Thread-Safe Operation**: Concurrent access handling with proper cleanup and resource management
 * **Sanity Checking**: Prevents unrealistic bandwidth values with reasonable maximum limits
 
-## Version 0.3.5 - 2024-08-26
+## Version 0.3.5 - 2025-08-26
 ### Major UX Overhaul
 * **Console Output System**: Complete redesign of progress reporting with single-line updates and timestamps
 * **Progress Indicators**: Added duration timestamps to all operations for better user feedback
@@ -116,7 +125,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Proton Integration**: Enhanced Proton window hiding and command execution
 * **7zip Integration**: Optimized extraction parameters for Linux compatibility
 
-## Version 0.3.4 - 2024-08-25
+## Version 0.3.4 - 2025-08-25
 ### Critical Bug Fixes
 * **BSA Building**: Fixed race condition during BSA building by moving directory cleanup outside foreach loop
 * **File Extraction**: Resolved file extraction race conditions with improved disposal patterns
@@ -128,7 +137,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Temp Directory Management**: Improved temporary file lifecycle management
 * **Resource Settings**: Enhanced resource concurrency configuration for Linux systems
 
-## Version 0.3.3 - 2024-08-24
+## Version 0.3.3 - 2025-08-24
 ### Core Functionality
 * **Linux Native Operation**: Full Linux compatibility without requiring Wine (except for texconv.exe)
 * **Proton Integration**: Complete Proton-based texture processing system
@@ -140,7 +149,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Cross-Platform Tools**: Included 7zz, innoextract, and texconv.exe for all platforms
 * **Automated Build**: Comprehensive build script with dependency checking and validation
 
-## Version 0.3.2 - 2024-08-23
+## Version 0.3.2 - 2025-08-23
 ### Initial Linux Port
 * **Base Fork**: Created from upstream Wabbajack with minimal Linux compatibility changes
 * **Proton Detection**: Automatic Steam Proton installation detection (Experimental, 10.0, 9.0)
@@ -153,13 +162,13 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Game Detection**: Linux Steam VDF parsing for multiple library locations
 * **Error Handling**: Linux-specific error handling and logging improvements
 
-## Version 0.3.1 - 2024-08-22
+## Version 0.3.1 - 2025-08-22
 ### Early Development
 * **Project Setup**: Initial project structure and build system configuration
 * **Dependency Management**: .NET 8.0 targeting for optimal Linux compatibility
 * **Basic Integration**: Initial Proton integration and Steam detection
 
-## Version 0.3.0 - 2024-08-21
+## Version 0.3.0 - 2025-08-21
 ### Initial Release
 * **Fork Creation**: Initial fork from upstream Wabbajack
 * **Linux Targeting**: Basic Linux compatibility setup

@@ -36,15 +36,46 @@ public class Resource<T> : IResource<T>
         Name = humanName;
         _tasks = new ConcurrentDictionary<ulong, Job<T>>();
         
+        // Initialize with default values to prevent race condition
+        MaxTasks = Environment.ProcessorCount;
+        MaxThroughput = long.MaxValue;
+        _semaphore = new SemaphoreSlim(MaxTasks);
+        _channel = Channel.CreateBounded<PendingReport>(10);
+        
+        // Start the task to update settings asynchronously
         Task.Run(async () =>
         {
-            var (maxTasks, maxThroughput) = await settingGetter();
-            MaxTasks = maxTasks;
-            MaxThroughput = maxThroughput;
-            _semaphore = new SemaphoreSlim(MaxTasks);
-            _channel = Channel.CreateBounded<PendingReport>(10);
-
-            await StartTask(token ?? CancellationToken.None);
+            try
+            {
+                var (maxTasks, maxThroughput) = await settingGetter();
+                MaxTasks = maxTasks;
+                MaxThroughput = maxThroughput;
+                
+                // Create new semaphore with updated settings
+                var oldSemaphore = _semaphore;
+                _semaphore = new SemaphoreSlim(MaxTasks);
+                
+                // Dispose old semaphore
+                oldSemaphore?.Dispose();
+                
+                // Update channel if needed
+                if (_channel.Reader.CanCount && _channel.Reader.Count > 0)
+                {
+                    var newChannel = Channel.CreateBounded<PendingReport>(10);
+                    _channel = newChannel;
+                }
+                
+                // Start the monitoring task
+                await StartTask(token ?? CancellationToken.None);
+            }
+            catch (Exception)
+            {
+                // If settings loading fails, keep using default values
+                // The resource will still work with fallback settings
+                
+                // Start the monitoring task with default settings
+                await StartTask(token ?? CancellationToken.None);
+            }
         }, token ?? CancellationToken.None);
     }
 
@@ -54,6 +85,13 @@ public class Resource<T> : IResource<T>
 
     public async ValueTask<Job<T>> Begin(string jobTitle, long size, CancellationToken token)
     {
+        // Ensure semaphore is initialized
+        if (_semaphore == null)
+        {
+            // Fallback initialization if somehow semaphore is still null
+            _semaphore = new SemaphoreSlim(Environment.ProcessorCount);
+        }
+        
         var id = Interlocked.Increment(ref _nextId);
         var job = new Job<T>
         {
