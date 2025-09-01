@@ -62,7 +62,7 @@ public static class ServiceExtensions
             useSpecialCharacters:false, 
             length: 8);
 
-        var tempBase = KnownFolders.EntryPoint.Combine("temp");
+        var tempBase = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("jackify").Combine("temp");
         service.AddTransient(s =>
             new TemporaryFileManager(tempBase.Combine(Environment.ProcessId + "_" + ShortId.Generate(shortIdOptions))));
 
@@ -236,7 +236,7 @@ public static class ServiceExtensions
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             var home = Environment.GetEnvironmentVariable("HOME");
-            return (home + "/.config/jackify").ToAbsolutePath().Combine("saved_settings");
+            return (home + "/.config/jackify").ToAbsolutePath();
         }
         else
         {
