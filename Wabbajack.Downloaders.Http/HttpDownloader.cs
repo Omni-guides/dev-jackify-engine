@@ -76,6 +76,16 @@ public class HttpDownloader : ADownloader<DTOs.DownloadStates.Http>, IUrlDownloa
     public override async Task<Hash> Download(Archive archive, DTOs.DownloadStates.Http state,
         AbsolutePath destination, IJob job, CancellationToken token)
     {
+        // Check for HTML content type to prevent downloading error pages
+        var response = await GetResponse(state, token);
+        if (response.IsSuccessStatusCode && response.Content.Headers.ContentType?.MediaType == "text/html")
+        {
+            _logger.LogError("Server returned HTML content instead of expected file for {name}. This may indicate a server error or redirect issue.", archive.Name);
+            response.Dispose();
+            throw new HttpException(response);
+        }
+        response.Dispose();
+        
         return await _downloader.Download(MakeMessage(state), destination, job, token);
     }
 

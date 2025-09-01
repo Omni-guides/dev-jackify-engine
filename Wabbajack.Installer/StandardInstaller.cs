@@ -136,6 +136,35 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
         var nonManualMissing = missing.Where(a => a.State is not Manual).ToList();
         
+        // Auto-cleanup corrupted files and retry once
+        if (nonManualMissing.Count > 0)
+        {
+            _logger.LogInformation("Detected {count} files with hash mismatches. Checking for corrupted downloads...", nonManualMissing.Count);
+            
+            var cleanedFiles = new List<Archive>();
+            foreach (var archive in nonManualMissing)
+            {
+                var expectedPath = _configuration.Downloads.Combine(archive.Name);
+                if (expectedPath.FileExists())
+                {
+                    _logger.LogWarning("Corrupted file detected: {name}. Deleting and re-downloading...", archive.Name);
+                    expectedPath.Delete();
+                    cleanedFiles.Add(archive);
+                }
+            }
+            
+            if (cleanedFiles.Count > 0)
+            {
+                _logger.LogInformation("Attempting to re-download {count} corrupted files...", cleanedFiles.Count);
+                await DownloadMissingArchives(cleanedFiles, token);
+                await HashArchives(token);
+                
+                // Recheck after cleanup and retry
+                missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
+                nonManualMissing = missing.Where(a => a.State is not Manual).ToList();
+            }
+        }
+        
         if (nonManualMissing.Count > 0)
         {
             foreach (var a in nonManualMissing)

@@ -23,10 +23,22 @@ public class GameFileDownloader : ADownloader<GameFileSource>
 
     public override Priority Priority => Priority.Normal;
 
-    public override Task<Hash> Download(Archive archive, GameFileSource state, AbsolutePath destination, IJob job,
+    public override async Task<Hash> Download(Archive archive, GameFileSource state, AbsolutePath destination, IJob job,
         CancellationToken token)
     {
-        throw new NotImplementedException();
+        var gameLocation = _locator.GameLocation(state.Game);
+        var sourceFile = state.GameFile.RelativeTo(gameLocation);
+        
+        if (!sourceFile.FileExists())
+        {
+            throw new FileNotFoundException($"Game file not found: {sourceFile} (Game: {state.Game})");
+        }
+
+        // Copy the file from game installation to destination
+        await sourceFile.CopyToAsync(destination, token);
+        
+        // Return the hash of the copied file
+        return await _hashCache.FileHashCachedAsync(destination, token);
     }
 
     public override Task<bool> Prepare()
