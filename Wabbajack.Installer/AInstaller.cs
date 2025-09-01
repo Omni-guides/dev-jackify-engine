@@ -16,6 +16,7 @@ using Wabbajack.DTOs;
 using Wabbajack.DTOs.BSA.FileStates;
 using Wabbajack.DTOs.Directives;
 using Wabbajack.DTOs.DownloadStates;
+using Wabbajack.DTOs.Interventions;
 using Wabbajack.DTOs.JsonConverters;
 using Wabbajack.FileExtractor.ExtractedFiles;
 using Wabbajack.Hashing.PHash;
@@ -551,11 +552,16 @@ public abstract class AInstaller<T>
 
             if (hash != archive.Hash)
             {
-                _logger.LogError("Downloaded hash {Downloaded} does not match expected hash: {Expected}", hash,
-                    archive.Hash);
                 if (destination!.Value.FileExists())
                 {
+                    _logger.LogError("Hash mismatch for existing file {name}: expected {Expected}, got {Downloaded}. The file appears to be corrupted or outdated.", 
+                        archive.Name, archive.Hash, hash);
                     destination!.Value.Delete();
+                }
+                else
+                {
+                    _logger.LogError("Downloaded hash {Downloaded} does not match expected hash: {Expected}", hash,
+                        archive.Hash);
                 }
 
                 return false;
@@ -577,6 +583,11 @@ public abstract class AInstaller<T>
         catch (NotImplementedException) when (archive.State is GameFileSource)
         {
             _logger.LogError("Missing game file {name}. This could be caused by missing DLC or a modified installation.", archive.Name);
+        }
+        catch (ManualDownloadRequiredException)
+        {
+            // Manual downloads are handled by the intervention handler, not here
+            // Don't log this as an error since it's expected behavior
         }
         catch (Exception ex)
         {

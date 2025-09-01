@@ -2,6 +2,26 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.3.9 - 2024-08-31 (STABLE)
+### Manual Download System & Error Handling Improvements
+* **Manual Download Detection**: Complete system for detecting and handling files requiring manual download
+* **User-Friendly Summary**: Prominent boxed header with clear instructions and numbered list of required downloads
+* **Hash Mismatch Clarity**: Specific error messages distinguish between corrupted files and download failures
+* **Automatic Cleanup**: Corrupted files automatically deleted with clear guidance on cause
+* **Better Error Messages**: More helpful final summaries with possible causes and specific counts
+
+### Technical Implementation
+* **CLIUserInterventionHandler**: New handler that collects manual downloads without blocking installation
+* **ManualDownloadRequiredException**: Custom exception for clean manual download signaling
+* **Hash Mismatch Detection**: Enhanced error handling to distinguish file corruption from network issues
+* **Error Message Filtering**: Manual downloads excluded from generic "Unable to download" errors
+* **Upstream Compatibility**: Matches upstream Wabbajack's approach to hash mismatch handling
+
+### User Experience
+* **Clear Action Items**: Step-by-step numbered list of required downloads with exact URLs
+* **No Confusion**: Clear distinction between manual downloads, hash mismatches, and network failures
+
+
 ## Version 0.3.8 - 2024-08-30 (STABLE)
 ### Critical Archive Compatibility Fix
 * **ZIP Encoding Support**: Fixed sanity check errors for ZIP archives containing non-ASCII filenames (international characters)
