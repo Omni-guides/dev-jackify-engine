@@ -136,12 +136,12 @@ public static class ServiceExtensions
         service.AddAllSingleton<IResource, IResource<DownloadDispatcher>>(s =>
             new Resource<DownloadDispatcher>("Downloads", GetResourceSettings(s, "Downloads"), s.GetRequiredService<CancellationToken>()));
 
-        service.AddAllSingleton<IResource, IResource<HttpClient>>(s => new Resource<HttpClient>("Web Requests", 4, long.MaxValue, s.GetRequiredService<CancellationToken>()));
+        service.AddAllSingleton<IResource, IResource<HttpClient>>(s => new Resource<HttpClient>("Web Requests", GetResourceSettings(s, "Web Requests"), s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<Context>>(s => new Resource<Context>("VFS", GetResourceSettings(s, "VFS"), s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<FileHashCache>>(s =>
             new Resource<FileHashCache>("File Hashing", GetResourceSettings(s, "File Hashing"), s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<Client>>(s =>
-            new Resource<Client>("Wabbajack Client", 4, long.MaxValue, s.GetRequiredService<CancellationToken>()));
+            new Resource<Client>("Wabbajack Client", GetResourceSettings(s, "Wabbajack Client"), s.GetRequiredService<CancellationToken>()));
         service.AddAllSingleton<IResource, IResource<FileExtractor.FileExtractor>>(s =>
             new Resource<FileExtractor.FileExtractor>("File Extractor", GetResourceSettings(s, "File Extractor"), s.GetRequiredService<CancellationToken>()));
 

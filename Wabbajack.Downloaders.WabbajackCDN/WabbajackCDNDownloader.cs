@@ -88,6 +88,19 @@ public class WabbajackCDNDownloader : ADownloader<WabbajackCDN>, IUrlDownloader,
                 using var partJob = await _limiter.Begin(
                     $"Downloading {definition.MungedName} ({part.Index}/{definition.Size})",
                     part.Size, token);
+                
+                // Forward fine-grained part progress to the outer job to avoid coarse, jumpy updates
+                long forwardedBytes = 0;
+                void ForwardProgress(object? _, (Percent Progress, long Processed) progressInfo)
+                {
+                    var delta = progressInfo.Processed - forwardedBytes;
+                    if (delta > 0)
+                    {
+                        job.ReportNoWait((int)Math.Min(delta, int.MaxValue));
+                        forwardedBytes = progressInfo.Processed;
+                    }
+                }
+                partJob.OnUpdate += ForwardProgress;
                 var msg = MakeMessage(new Uri(state.Url + $"/parts/{part.Index}"));
                 using var response = await _client.SendAsync(msg, HttpCompletionOption.ResponseHeadersRead, token);
                 if (!response.IsSuccessStatusCode)
@@ -98,6 +111,14 @@ public class WabbajackCDNDownloader : ADownloader<WabbajackCDN>, IUrlDownloader,
                 var ms = new MemoryStream();
                 var hash = await data.HashingCopy(ms, token, partJob);
                 ms.Position = 0;
+                // Ensure any remaining unreported bytes are forwarded (in case the final OnUpdate didn't fire)
+                if (forwardedBytes < part.Size)
+                {
+                    var remaining = part.Size - forwardedBytes;
+                    if (remaining > 0) job.ReportNoWait((int)Math.Min(remaining, int.MaxValue));
+                    forwardedBytes = part.Size;
+                }
+                partJob.OnUpdate -= ForwardProgress;
                 if (hash != part.Hash)
                 {
                     throw new Exception(
@@ -112,7 +133,6 @@ public class WabbajackCDNDownloader : ADownloader<WabbajackCDN>, IUrlDownloader,
         {
             var (ms, part) = rec;
             fs.Position = part.Offset;
-            await job.Report((int)part.Size, token);
             await ms.CopyToAsync(fs, token);
             await fs.FlushAsync(token);
         });

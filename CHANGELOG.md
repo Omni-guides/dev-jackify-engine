@@ -2,7 +2,14 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
-## Version 0.3.9 - 2024-08-31 (STABLE)
+## Version 0.3.10 - 2024-08-31 (STABLE)
+### Critical Disk Space Fix - Temporary File Cleanup
+* **__temp__ Directory Cleanup**: Fixed critical bug where 17GB+ temporary files were left behind after installation
+* **Automatic Cleanup**: Added proper cleanup of `__temp__` directory containing extracted modlist files and processing artifacts
+* **Professional Progress Display**: Added "=== Removing Temporary Files ===" section with progress indicators
+* **Disk Space Recovery**: Eliminates accumulation of temporary files that could consume hundreds of GB over multiple installations
+* **Upstream Compatibility**: Matches upstream Wabbajack's approach to temporary file management
+
 ### Manual Download System & Error Handling Improvements
 * **Manual Download Detection**: Complete system for detecting and handling files requiring manual download
 * **User-Friendly Summary**: Prominent boxed header with clear instructions and numbered list of required downloads
@@ -11,6 +18,8 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Better Error Messages**: More helpful final summaries with possible causes and specific counts
 
 ### Technical Implementation
+* **Temporary File Management**: Added proper cleanup of `__temp__` directory in installation flow
+* **Progress Integration**: Integrated cleanup into existing progress system with proper step counting
 * **CLIUserInterventionHandler**: New handler that collects manual downloads without blocking installation
 * **ManualDownloadRequiredException**: Custom exception for clean manual download signaling
 * **Hash Mismatch Detection**: Enhanced error handling to distinguish file corruption from network issues
@@ -18,6 +27,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Upstream Compatibility**: Matches upstream Wabbajack's approach to hash mismatch handling
 
 ### User Experience
+* **Disk Space Efficiency**: No more wasted disk space from leftover temporary files
 * **Clear Action Items**: Step-by-step numbered list of required downloads with exact URLs
 * **No Confusion**: Clear distinction between manual downloads, hash mismatches, and network failures
 

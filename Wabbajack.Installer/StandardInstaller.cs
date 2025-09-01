@@ -47,7 +47,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         base(logger, config, gameLocator, extractor, jsonSerializer, vfs, fileHashCache, downloadDispatcher,
             parallelOptions, limiter, wjClient, imageLoader, serviceProvider)
     {
-        MaxSteps = 14;
+        MaxSteps = 15;
     }
 
     public static StandardInstaller Create(IServiceProvider provider, InstallerConfiguration configuration)
@@ -457,11 +457,25 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         // Clear the progress line after BSA building is complete
         ConsoleOutput.ClearProgressLine();
 
+        // Add newline before cleanup section for proper separation
+        Console.WriteLine();
+        NextStep(Consts.StepFinished, "Removing Temporary Files", 2);
+        
         var bsaDir = _configuration.Install.Combine(Consts.BSACreationDir);
         if (bsaDir.DirectoryExists())
         {
             _logger.LogInformation("Removing temp folder {bsaCreationDir}", Consts.BSACreationDir);
             bsaDir.DeleteDirectory();
+            UpdateProgress(1);
+        }
+
+        // Clean up the main temporary directory
+        var tempDir = _configuration.Install.Combine("__temp__");
+        if (tempDir.DirectoryExists())
+        {
+            _logger.LogInformation("Removing temp folder __temp__");
+            tempDir.DeleteDirectory();
+            UpdateProgress(1);
         }
     }
 
