@@ -138,6 +138,35 @@ namespace Wabbajack.Hashing.PHash
             };
         }
 
+        public async Task<ProcessHelper> Create7zProcess(object[] sevenZipArgs)
+        {
+            var prefix = await GetOrCreatePrefix();
+            
+            // Get Proton wrapper path
+            var protonWrapperPath = await _protonDetector.GetProtonWrapperPathAsync();
+            if (protonWrapperPath == null)
+            {
+                throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
+            }
+            
+            return new ProcessHelper
+            {
+                Path = protonWrapperPath.ToAbsolutePath(),
+                Arguments = new object[] { "run", "Extractors\\windows-x64\\7z.exe" }.Concat(sevenZipArgs),
+                EnvironmentVariables = new Dictionary<string, string>
+                {
+                    ["WINEPREFIX"] = prefix.ToString(),
+                    ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
+                    ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = ""
+                },
+                WorkingDirectory = KnownFolders.EntryPoint.ToString(),
+                ThrowOnNonZeroExitCode = true,
+                LogError = true
+            };
+        }
+
         public void Cleanup()
         {
             // Optionally clean up the prefix directory

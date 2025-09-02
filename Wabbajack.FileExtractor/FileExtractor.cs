@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
@@ -20,6 +21,7 @@ using Wabbajack.IO.Async;
 using Wabbajack.Paths;
 using Wabbajack.Paths.IO;
 using Wabbajack.RateLimiter;
+
 
 namespace Wabbajack.FileExtractor;
 
@@ -134,156 +136,42 @@ public class FileExtractor
         }
 
         if (onlyFiles != null && onlyFiles.Count != results.Count)
+        {
+            // Check if this looks like an encoding issue that might be fixed by Proton fallback
+            bool isSmallZipArchive = sFn.Name.FileName.Extension == Extension.FromPath(".zip") && 
+                                   onlyFiles.Count < 100 && 
+                                   results.Count == 0;
+            
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && isSmallZipArchive)
+            {
+                _logger.LogWarning("Encoding issue detected in {ArchiveName}, attempting Proton fallback", sFn.Name.FileName);
+                
+                try
+                {
+                    var protonResults = await GatheringExtractWithProton7Zip(sFn, shouldExtract, mapfn, onlyFiles, token, progressFunction);
+                    _logger.LogInformation("Proton 7z.exe fallback successful for {ArchiveName}: {Count} files extracted", sFn.Name.FileName, protonResults.Count);
+                    return protonResults;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Proton 7z.exe fallback failed for {ArchiveName}", sFn.Name.FileName);
+                    // Fall through to original exception
+                }
+            }
+            
             throw new Exception(
                 $"Sanity check error extracting {sFn.Name} - {results.Count} results, expected {onlyFiles.Count}");
+        }
         return results;
     }
 
-    private async Task<IDictionary<RelativePath,T>> GatheringExtractWithBTAR<T>
-        (IStreamFactory sFn, Predicate<RelativePath> shouldExtract, Func<RelativePath,IExtractedFile,ValueTask<T>> mapfn, CancellationToken token)
-    {
-        await using var strm = await sFn.GetStream();
-        var astrm = new AsyncBinaryReader(strm);
-        var magic = BinaryPrimitives.ReadUInt32BigEndian(await astrm.ReadBytes(4));
-        // BTAR Magic
-        if (magic != 0x42544152) throw new Exception("Not a valid BTAR file");
-        if (await astrm.ReadUInt16() != 1) throw new Exception("Invalid BTAR major version, should be 1");
-        var minorVersion = await astrm.ReadUInt16();
-        if (minorVersion is < 2 or > 4) throw new Exception("Invalid BTAR minor version");
-
-        var results = new Dictionary<RelativePath, T>();
-
-        while (astrm.Position < astrm.Length)
-        {
-            var nameLength = await astrm.ReadUInt16();
-            var name = Encoding.UTF8.GetString(await astrm.ReadBytes(nameLength)).ToRelativePath();
-            var dataLength = await astrm.ReadUInt64();
-            var newPos = astrm.Position + (long)dataLength;
-            if (!shouldExtract(name))
-            {
-                astrm.Position += (long)dataLength;
-                continue;
-            }
-
-            var result = await mapfn(name, new BTARExtractedFile(sFn, name, astrm, astrm.Position, (long) dataLength));
-            results.Add(name, result);
-            astrm.Position = newPos;
-        }
-
-        return results;
-    }
-
-    private class BTARExtractedFile : IExtractedFile
-    {
-        private readonly IStreamFactory _parent;
-        private readonly AsyncBinaryReader _rdr;
-        private readonly long _start;
-        private readonly long _length;
-        private readonly RelativePath _name;
-        private bool _disposed = false;
-
-        public BTARExtractedFile(IStreamFactory parent, RelativePath name, AsyncBinaryReader rdr, long startingPosition, long length)
-        {
-            _name = name;
-            _parent = parent;
-            _rdr = rdr;
-            _start = startingPosition;
-            _length = length;
-        }
-
-        public DateTime LastModifiedUtc => _parent.LastModifiedUtc;
-        public IPath Name => _name;
-        public async ValueTask<Stream> GetStream()
-        {
-            _rdr.Position = _start;
-            var data = await _rdr.ReadBytes((int) _length);
-            return new MemoryStream(data);
-        }
-
-        public bool CanMove { get; set; } = true;
-        public async ValueTask Move(AbsolutePath newPath, CancellationToken token)
-        {
-            await using var output = newPath.Open(FileMode.Create, FileAccess.Read, FileShare.Read);
-            _rdr.Position = _start;
-            await _rdr.BaseStream.CopyToLimitAsync(output, (int)_length, token);
-            _disposed = true;
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                _disposed = true;
-                // BTAR files are memory-based, no cleanup needed
-            }
-        }
-    }
-
-    private async Task<Dictionary<RelativePath, T>> GatheringExtractWithOMOD<T>
-    (Stream archive, Predicate<RelativePath> shouldExtract, Func<RelativePath, IExtractedFile, ValueTask<T>> mapfn,
-        CancellationToken token)
-    {
-        var tmpFile = _manager.CreateFile();
-        await tmpFile.Path.WriteAllAsync(archive, CancellationToken.None);
-        var dest = _manager.CreateFolder();
-
-        using var omod = new OMOD(tmpFile.Path.ToString());
-
-        var results = new Dictionary<RelativePath, T>();
-
-        omod.ExtractFilesParallel(dest.Path.ToString(), 4, cancellationToken: token);
-        if (omod.HasEntryFile(OMODEntryFileType.PluginsCRC))
-            omod.ExtractFiles(false, dest.Path.ToString());
-
-        // Fix OMOD files with backslashes in names (Linux path issue)
-        await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
-
-        var files = omod.GetDataFiles();
-        if (omod.HasEntryFile(OMODEntryFileType.PluginsCRC))
-            files.UnionWith(omod.GetPluginFiles());
-
-        foreach (var compressedFile in files)
-        {
-            var abs = compressedFile.Name.ToRelativePath().RelativeTo(dest.Path);
-            var rel = abs.RelativeTo(dest.Path);
-            if (!shouldExtract(rel)) continue;
-
-            var result = await mapfn(rel, new ExtractedNativeFile(abs));
-            results.Add(rel, result);
-        }
-
-        return results;
-    }
-
-    public async Task<Dictionary<RelativePath, T>> GatheringExtractWithBSA<T>(IStreamFactory sFn,
-        FileType sig,
-        Predicate<RelativePath> shouldExtract,
-        Func<RelativePath, IExtractedFile, ValueTask<T>> mapFn,
-        CancellationToken token)
-    {
-        var archive = await BSADispatch.Open(sFn, sig);
-        var results = new Dictionary<RelativePath, T>();
-        foreach (var entry in archive.Files)
-        {
-            if (token.IsCancellationRequested) break;
-
-            if (!shouldExtract(entry.Path))
-                continue;
-
-            var result = await mapFn(entry.Path, new ExtractedMemoryFile(await entry.GetStreamFactory(token)));
-            results.Add(entry.Path, result);
-        }
-        
-        _logger.LogDebug("Finished extracting {Name}", sFn.Name);
-        return results;
-    }
-
-    public async Task<IDictionary<RelativePath, T>> GatheringExtractWith7Zip<T>(IStreamFactory sf,
-        Predicate<RelativePath> shouldExtract,
-        Func<RelativePath, IExtractedFile, ValueTask<T>> mapfn,
-        IReadOnlyCollection<RelativePath>? onlyFiles,
+    private async Task<IDictionary<RelativePath, T>> GatheringExtractWith7Zip<T>(
+        IStreamFactory sFn, 
+        Predicate<RelativePath> shouldExtract, 
+        Func<RelativePath, IExtractedFile, ValueTask<T>> mapfn, 
+        HashSet<RelativePath>? onlyFiles, 
         CancellationToken token,
-        Action<Percent>? progressFunction = null)
+        Action<Percent>? progressFunction)
     {
         TemporaryPath? tmpFile = null;
         await using var dest = _manager.CreateFolder();
@@ -291,26 +179,22 @@ public class FileExtractor
         TemporaryPath? spoolFile = null;
         AbsolutePath source;
         
-        var job = await _limiter.Begin($"Extracting {sf.Name}", 0, token);
+        var job = await _limiter.Begin($"Extracting {sFn.Name}", 0, token);
         try
         {
-            if (sf.Name is AbsolutePath abs)
+            if (sFn.Name is AbsolutePath abs)
             {
                 source = abs;
             }
             else
             {
-                spoolFile = _manager.CreateFile(sf.Name.FileName.Extension);
-                await using var s = await sf.GetStream();
+                spoolFile = _manager.CreateFile(sFn.Name.FileName.Extension);
+                await using var s = await sFn.GetStream();
                 await spoolFile.Value.Path.WriteAllAsync(s, token);
                 source = spoolFile.Value.Path;
             }
 
             _logger.LogDebug("Extracting {Source}", source.FileName);
-
-            // Temporarily disabled: Use 7zip for all archives to debug path conflicts
-            // bool isZipFile = source.Extension == Extension.FromPath(".zip");
-            // if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && isZipFile) { ... }
 
             var initialPath = "";
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -477,7 +361,245 @@ public class FileExtractor
             if (spoolFile != null) await spoolFile.Value.DisposeAsync();
         }
     }
-    
+
+    private async Task<IDictionary<RelativePath, T>> GatheringExtractWithProton7Zip<T>(
+        IStreamFactory sFn, 
+        Predicate<RelativePath> shouldExtract, 
+        Func<RelativePath, IExtractedFile, ValueTask<T>> mapfn, 
+        HashSet<RelativePath>? onlyFiles, 
+        CancellationToken token,
+        Action<Percent>? progressFunction)
+    {
+        await using var tempFolder = _manager.CreateFolder();
+        
+        // Use Proton 7z.exe for extraction via ProtonDetector
+        var protonDetector = new Wabbajack.Common.ProtonDetector(Microsoft.Extensions.Logging.Abstractions.NullLogger<Wabbajack.Common.ProtonDetector>.Instance);
+        var protonWrapperPath = await protonDetector.GetProtonWrapperPathAsync();
+        
+        if (protonWrapperPath == null)
+        {
+            throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
+        }
+        
+        var args = new List<string> { "run", "Extractors\\windows-x64\\7z.exe", "x", "-o" + tempFolder.Path, sFn.Name.ToString() };
+        
+        if (onlyFiles != null)
+        {
+            foreach (var file in onlyFiles)
+            {
+                if (file != null)
+                {
+                    args.Add(file.ToString());
+                }
+            }
+        }
+        
+        var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = protonWrapperPath,
+                Arguments = string.Join(" ", args),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                WorkingDirectory = KnownFolders.EntryPoint.ToString(),
+                EnvironmentVariables =
+                {
+                    ["WINEPREFIX"] = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Jackify/.engine/wineprefix",
+                    ["STEAM_COMPAT_DATA_PATH"] = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Jackify/.engine/wineprefix",
+                    ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = protonDetector.GetSteamClientInstallPath(),
+                    ["WINEDEBUG"] = "-all",
+                    ["DISPLAY"] = ""
+                }
+            }
+        };
+        
+        _logger.LogDebug("Extracting with Proton 7z.exe: {Command}", string.Join(" ", args));
+        
+        var output = new StringBuilder();
+        var error = new StringBuilder();
+        
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+                output.AppendLine(e.Data);
+        };
+        
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+                error.AppendLine(e.Data);
+        };
+        
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        await process.WaitForExitAsync(token);
+        
+        if (process.ExitCode != 0)
+        {
+            _logger.LogError("Proton 7z.exe extraction failed with exit code {ExitCode}. Error: {Error}", process.ExitCode, error.ToString());
+            throw new Exception($"Proton 7z.exe extraction failed with exit code {process.ExitCode}");
+        }
+        
+        // Process extracted files
+        var results = new Dictionary<RelativePath, T>();
+        var extractedFiles = tempFolder.Path.EnumerateFiles(recursive: true);
+        
+        foreach (var file in extractedFiles)
+        {
+            var relativePath = file.RelativeTo(tempFolder.Path);
+            if (!shouldExtract(relativePath)) continue;
+            
+            var extractedFile = new ExtractedNativeFile(file);
+            var result = await mapfn(relativePath, extractedFile);
+            results[relativePath] = result;
+        }
+        
+        return results;
+    }
+
+    private async Task<IDictionary<RelativePath,T>> GatheringExtractWithBTAR<T>
+        (IStreamFactory sFn, Predicate<RelativePath> shouldExtract, Func<RelativePath,IExtractedFile,ValueTask<T>> mapfn, CancellationToken token)
+    {
+        await using var strm = await sFn.GetStream();
+        var astrm = new AsyncBinaryReader(strm);
+        var magic = BinaryPrimitives.ReadUInt32BigEndian(await astrm.ReadBytes(4));
+        // BTAR Magic
+        if (magic != 0x42544152) throw new Exception("Not a valid BTAR file");
+        if (await astrm.ReadUInt16() != 1) throw new Exception("Invalid BTAR major version, should be 1");
+        var minorVersion = await astrm.ReadUInt16();
+        if (minorVersion is < 2 or > 4) throw new Exception("Invalid BTAR minor version");
+
+        var results = new Dictionary<RelativePath, T>();
+
+        while (astrm.Position < astrm.Length)
+        {
+            var nameLength = await astrm.ReadUInt16();
+            var name = Encoding.UTF8.GetString(await astrm.ReadBytes(nameLength)).ToRelativePath();
+            var dataLength = await astrm.ReadUInt64();
+            var newPos = astrm.Position + (long)dataLength;
+            if (!shouldExtract(name))
+            {
+                astrm.Position += (long)dataLength;
+                continue;
+            }
+
+            var result = await mapfn(name, new BTARExtractedFile(sFn, name, astrm, astrm.Position, (long) dataLength));
+            results.Add(name, result);
+            astrm.Position = newPos;
+        }
+
+        return results;
+    }
+
+    private class BTARExtractedFile : IExtractedFile
+    {
+        private readonly IStreamFactory _parent;
+        private readonly AsyncBinaryReader _rdr;
+        private readonly long _start;
+        private readonly long _length;
+        private readonly RelativePath _name;
+        private bool _disposed = false;
+
+        public BTARExtractedFile(IStreamFactory parent, RelativePath name, AsyncBinaryReader rdr, long startingPosition, long length)
+        {
+            _name = name;
+            _parent = parent;
+            _rdr = rdr;
+            _start = startingPosition;
+            _length = length;
+        }
+
+        public DateTime LastModifiedUtc => _parent.LastModifiedUtc;
+        public IPath Name => _name;
+        public async ValueTask<Stream> GetStream()
+        {
+            _rdr.Position = _start;
+            var data = await _rdr.ReadBytes((int) _length);
+            return new MemoryStream(data);
+        }
+
+        public bool CanMove { get; set; } = true;
+        public async ValueTask Move(AbsolutePath newPath, CancellationToken token)
+        {
+            await using var output = newPath.Open(FileMode.Create, FileAccess.Read, FileShare.Read);
+            _rdr.Position = _start;
+            await _rdr.BaseStream.CopyToLimitAsync(output, (int)_length, token);
+            _disposed = true;
+        }
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                // BTAR files are memory-based, no cleanup needed
+            }
+        }
+    }
+
+    private async Task<Dictionary<RelativePath, T>> GatheringExtractWithOMOD<T>
+    (Stream archive, Predicate<RelativePath> shouldExtract, Func<RelativePath, IExtractedFile, ValueTask<T>> mapfn,
+        CancellationToken token)
+    {
+        var tmpFile = _manager.CreateFile();
+        await tmpFile.Path.WriteAllAsync(archive, CancellationToken.None);
+        var dest = _manager.CreateFolder();
+
+        using var omod = new OMOD(tmpFile.Path.ToString());
+
+        var results = new Dictionary<RelativePath, T>();
+
+        omod.ExtractFilesParallel(dest.Path.ToString(), 4, cancellationToken: token);
+        if (omod.HasEntryFile(OMODEntryFileType.PluginsCRC))
+            omod.ExtractFiles(false, dest.Path.ToString());
+
+        // Fix OMOD files with backslashes in names (Linux path issue)
+        await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
+
+        var files = omod.GetDataFiles();
+        if (omod.HasEntryFile(OMODEntryFileType.PluginsCRC))
+            files.UnionWith(omod.GetPluginFiles());
+
+        foreach (var compressedFile in files)
+        {
+            var abs = compressedFile.Name.ToRelativePath().RelativeTo(dest.Path);
+            var rel = abs.RelativeTo(dest.Path);
+            if (!shouldExtract(rel)) continue;
+
+            var result = await mapfn(rel, new ExtractedNativeFile(abs));
+            results.Add(rel, result);
+        }
+
+        return results;
+    }
+
+    public async Task<Dictionary<RelativePath, T>> GatheringExtractWithBSA<T>(IStreamFactory sFn,
+        FileType sig,
+        Predicate<RelativePath> shouldExtract,
+        Func<RelativePath, IExtractedFile, ValueTask<T>> mapFn,
+        CancellationToken token)
+    {
+        var archive = await BSADispatch.Open(sFn, sig);
+        var results = new Dictionary<RelativePath, T>();
+        foreach (var entry in archive.Files)
+        {
+            if (token.IsCancellationRequested) break;
+
+            if (!shouldExtract(entry.Path))
+                continue;
+
+            var result = await mapFn(entry.Path, new ExtractedMemoryFile(await entry.GetStreamFactory(token)));
+            results.Add(entry.Path, result);
+        }
+        
+        _logger.LogDebug("Finished extracting {Name}", sFn.Name);
+        return results;
+    }
+
     public async Task<IDictionary<RelativePath, T>> GatheringExtractWithInnoExtract<T>(IStreamFactory sf,
         Predicate<RelativePath> shouldExtract,
         Func<RelativePath, IExtractedFile, ValueTask<T>> mapfn,

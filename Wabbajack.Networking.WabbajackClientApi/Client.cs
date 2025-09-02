@@ -243,12 +243,12 @@ public class Client
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "Failed loading JSON for repository {repo} from {url} - Exception: {ex}", url.Key, url.Value, ex.ToString());
+                    _logger.LogDebug(ex, "Failed loading JSON for repository {repo} from {url} - Exception: {ex}", url.Key, url.Value, ex.ToString());
                     return Enumerable.Empty<ModlistMetadata>();
                 }
                 catch(Exception ex)
                 {
-                    _logger.LogError(ex, "Failed loading lists from repository {repo}: {url} - Exception: {ex}", url.Key, url.Value, ex.ToString());
+                    _logger.LogDebug(ex, "Failed loading lists from repository {repo}: {url} - Exception: {ex}", url.Key, url.Value, ex.ToString());
                     return Enumerable.Empty<ModlistMetadata>();
                 }
             })
