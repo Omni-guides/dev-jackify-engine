@@ -147,7 +147,7 @@ public class FileExtractor
                     
                     if (useProtonFallback)
                     {
-                        _logger.LogInformation("Archive {ArchiveName} contains files with foreign characters, using Proton 7z.exe for extraction", sFn.Name.FileName);
+                        _logger.LogDebug("Archive {ArchiveName} contains files with foreign characters, using Proton 7z.exe for extraction", sFn.Name.FileName);
                         results = await GatheringExtractWithProton7Zip(sFn, shouldExtract,
                             mapfn, onlyFiles, token, progressFunction);
                     }

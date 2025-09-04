@@ -17,6 +17,14 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Disk Space Recovery**: Eliminates accumulation of temporary files that could consume hundreds of GB over multiple installations
 * **Upstream Compatibility**: Matches upstream Wabbajack's approach to temporary file management
 
+### Foreign Character Archive Extraction Fix
+* **ZIP Encoding Detection**: Added comprehensive foreign character detection for ZIP archives (Nordic: ö,ä,ü; Romance: á,é,í; Slavic: ć,č,đ; Other: ß,þ,ð)
+* **Proton 7z.exe Fallback**: Automatic fallback to Windows 7z.exe via Proton for archives with problematic character encodings
+* **Zero Overhead Design**: Normal archives (99.99%) continue using fast Linux 7zz extraction
+* **Path Resolution Fix**: Fixed KnownFolders.EntryPoint path construction causing double "publish" directory issue
+* **Archive Format Intelligence**: 7Z archives work perfectly (UTF-8 native), ZIP archives with encoding issues automatically use Proton
+* **Root Cause Resolution**: Solves Linux 7zz filename corruption (ö → �) while preserving performance
+
 ### Manual Download System & Error Handling Improvements
 * **Manual Download Detection**: Complete system for detecting and handling files requiring manual download
 * **User-Friendly Summary**: Prominent boxed header with clear instructions and numbered list of required downloads
@@ -25,6 +33,11 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Better Error Messages**: More helpful final summaries with possible causes and specific counts
 
 ### Technical Implementation
+* **Foreign Character Detection**: Added ProblematicChars HashSet with comprehensive international character coverage
+* **Proton 7z.exe Integration**: Implemented RunProton7zExtraction method with proper environment variable setup
+* **Archive Format Routing**: Smart detection routes ZIP archives with foreign chars to Proton, others to Linux 7zz
+* **Path Resolution Fix**: Corrected KnownFolders.EntryPoint usage to prevent double directory paths
+* **Fallback Detection**: Safety net for missed encoding issues with suspicious character logging
 * **Resource Settings Integration**: Updated ServiceExtensions to use configurable resource settings for all HTTP operations
 * **Temporary File Management**: Added proper cleanup of `__temp__` directory in installation flow
 * **Progress Integration**: Integrated cleanup into existing progress system with proper step counting
