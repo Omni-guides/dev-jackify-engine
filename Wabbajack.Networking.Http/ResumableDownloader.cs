@@ -50,7 +50,7 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
         }
         catch (Exception ex) when (ex is SocketException || ex is IOException || ex is HttpRequestException)
         {
-            _logger.LogWarning(ex, "Failed to download '{name}' due to network error. Retrying...", filePath.FileName.ToString());
+            _logger.LogDebug("Failed to download '{name}' due to network error. Retrying...", filePath.FileName.ToString());
 
             if (retry == 0)
             {
@@ -65,7 +65,7 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
         {
-            _logger.LogWarning(ex, "Failed to download '{name}' due to requested range not being satisfiable. Retrying from beginning...", filePath.FileName.ToString());
+            _logger.LogDebug("Failed to download '{name}' due to requested range not being satisfiable. Retrying from beginning...", filePath.FileName.ToString());
 
             if (retry == 0)
             {

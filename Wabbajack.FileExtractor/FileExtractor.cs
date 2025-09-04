@@ -21,6 +21,7 @@ using Wabbajack.IO.Async;
 using Wabbajack.Paths;
 using Wabbajack.Paths.IO;
 using Wabbajack.RateLimiter;
+using Wabbajack.Hashing.PHash;
 
 
 namespace Wabbajack.FileExtractor;
@@ -56,6 +57,21 @@ public class FileExtractor
         FOMODExtension
     };
 
+    // Known problematic characters that cause 7zz encoding issues on Linux
+    private static readonly HashSet<char> ProblematicChars = new()
+    {
+        // Nordic
+        'ä', 'ö', 'ü', 'å', 'ø', 'æ', 'Ä', 'Ö', 'Ü', 'Å', 'Ø', 'Æ',
+        // Romance
+        'á', 'é', 'í', 'ó', 'ú', 'à', 'è', 'ì', 'ò', 'ù', 'â', 'ê', 'î', 'ô', 'û', 'ç', 'ñ',
+        'Á', 'É', 'Í', 'Ó', 'Ú', 'À', 'È', 'Ì', 'Ò', 'Ù', 'Â', 'Ê', 'Î', 'Ô', 'Û', 'Ç', 'Ñ',
+        // Slavic
+        'ć', 'č', 'đ', 'š', 'ž', 'ř', 'ě', 'ý', 'ť', 'ď', 'ň', 'ĺ', 'ľ',
+        'Ć', 'Č', 'Đ', 'Š', 'Ž', 'Ř', 'Ě', 'Ý', 'Ť', 'Ď', 'Ň', 'Ĺ', 'Ľ',
+        // Other
+        'ß', 'þ', 'ð', 'Þ', 'Ð'
+    };
+
     private readonly IResource<FileExtractor> _limiter;
     private readonly ILogger<FileExtractor> _logger;
     private readonly TemporaryFileManager _manager;
@@ -74,6 +90,25 @@ public class FileExtractor
     public FileExtractor WithTemporaryFileManager(TemporaryFileManager manager)
     {
         return new FileExtractor(_logger, _parallelOptions, manager, _limiter);
+    }
+
+    /// <summary>
+    /// Detects if any files contain characters that are known to cause extraction issues with 7zz on Linux
+    /// </summary>
+    private static bool ContainsProblematicCharacters(HashSet<RelativePath> onlyFiles)
+    {
+        foreach (var file in onlyFiles)
+        {
+            var filename = file.ToString();
+            foreach (var c in filename)
+            {
+                if (ProblematicChars.Contains(c))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public async Task<IDictionary<RelativePath, T>> GatheringExtract<T>(
@@ -105,9 +140,23 @@ public class FileExtractor
                 }
                 else
                 {
-                    await using var tempFolder = _manager.CreateFolder();
-                    results = await GatheringExtractWith7Zip(sFn, shouldExtract,
-                        mapfn, onlyFiles, token, progressFunction);
+                    // Check if we need to use Proton 7z.exe for foreign character handling
+                    bool useProtonFallback = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && 
+                                            onlyFiles != null && 
+                                            ContainsProblematicCharacters(onlyFiles);
+                    
+                    if (useProtonFallback)
+                    {
+                        _logger.LogInformation("Archive {ArchiveName} contains files with foreign characters, using Proton 7z.exe for extraction", sFn.Name.FileName);
+                        results = await GatheringExtractWithProton7Zip(sFn, shouldExtract,
+                            mapfn, onlyFiles, token, progressFunction);
+                    }
+                    else
+                    {
+                        await using var tempFolder = _manager.CreateFolder();
+                        results = await GatheringExtractWith7Zip(sFn, shouldExtract,
+                            mapfn, onlyFiles, token, progressFunction);
+                    }
                 }
 
                 break;
@@ -137,20 +186,63 @@ public class FileExtractor
 
         if (onlyFiles != null && onlyFiles.Count != results.Count)
         {
-            // Check if this looks like an encoding issue that might be fixed by Proton fallback
-            bool isSmallZipArchive = sFn.Name.FileName.Extension == Extension.FromPath(".zip") && 
-                                   onlyFiles.Count < 100 && 
-                                   results.Count == 0;
+            // Safety net: Check if this might be a foreign character encoding issue that we missed
+            bool couldBeForeignCharIssue = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && 
+                                          (sFn.Name.FileName.Extension == Extension.FromPath(".zip") ||
+                                           sFn.Name.FileName.Extension == Extension.FromPath(".7z") ||
+                                           sFn.Name.FileName.Extension == Extension.FromPath(".rar")) &&
+                                          onlyFiles.Count < 1000; // Only try for reasonably sized archives
             
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && isSmallZipArchive)
+            if (couldBeForeignCharIssue && !ContainsProblematicCharacters(onlyFiles))
             {
-                _logger.LogWarning("Encoding issue detected in {ArchiveName}, attempting Proton fallback", sFn.Name.FileName);
+                // Log missing files to help identify new problematic characters
+                var missingFiles = onlyFiles.Where(expected => !results.ContainsKey(expected)).ToList();
+                var extractedFiles = results.Keys.ToList();
+                
+                _logger.LogWarning("Sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files. Missing files with potential encoding issues:", 
+                    sFn.Name.FileName, results.Count, onlyFiles.Count);
+                
+                foreach (var missing in missingFiles.Take(5)) // Log first 5 to avoid spam
+                {
+                    _logger.LogWarning("Missing: {MissingFile}", missing);
+                }
+                
+                // Check if any extracted files have suspicious characters that we haven't catalogued
+                var suspiciousChars = new HashSet<char>();
+                foreach (var extracted in extractedFiles.Take(10))
+                {
+                    foreach (var c in extracted.ToString())
+                    {
+                        if (c > 127 && !ProblematicChars.Contains(c)) // Non-ASCII chars we don't know about
+                        {
+                            suspiciousChars.Add(c);
+                        }
+                    }
+                }
+                
+                if (suspiciousChars.Count > 0)
+                {
+                    _logger.LogWarning("Found potentially problematic characters in extracted files: {SuspiciousChars}", 
+                        string.Join(", ", suspiciousChars.Select(c => $"'{c}' (U+{(int)c:X4})")));
+                }
+                
+                // Try Proton fallback as last resort
+                _logger.LogWarning("Attempting Proton 7z.exe fallback for potential foreign character issue");
                 
                 try
                 {
                     var protonResults = await GatheringExtractWithProton7Zip(sFn, shouldExtract, mapfn, onlyFiles, token, progressFunction);
-                    _logger.LogInformation("Proton 7z.exe fallback successful for {ArchiveName}: {Count} files extracted", sFn.Name.FileName, protonResults.Count);
-                    return protonResults;
+                    if (protonResults.Count == onlyFiles.Count)
+                    {
+                        _logger.LogInformation("Proton 7z.exe fallback successful for {ArchiveName}: {Count}/{ExpectedCount} files extracted", 
+                            sFn.Name.FileName, protonResults.Count, onlyFiles.Count);
+                        return protonResults;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Proton 7z.exe fallback still has count mismatch for {ArchiveName}: {Count}/{ExpectedCount}", 
+                            sFn.Name.FileName, protonResults.Count, onlyFiles.Count);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -314,7 +406,6 @@ public class FileExtractor
                 throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
             }
             
-            PostProcess:
             var extractedFiles = dest.Path.EnumerateFiles().ToList();
             _logger.LogDebug("POST-EXTRACTION: {archive} extracted {count} files to {dest}", 
                 source.FileName, extractedFiles.Count, dest.Path);
@@ -372,93 +463,118 @@ public class FileExtractor
     {
         await using var tempFolder = _manager.CreateFolder();
         
-        // Use Proton 7z.exe for extraction via ProtonDetector
-        var protonDetector = new Wabbajack.Common.ProtonDetector(Microsoft.Extensions.Logging.Abstractions.NullLogger<Wabbajack.Common.ProtonDetector>.Instance);
-        var protonWrapperPath = await protonDetector.GetProtonWrapperPathAsync();
+        TemporaryPath? spoolFile = null;
+        AbsolutePath source;
         
-        if (protonWrapperPath == null)
+        try
         {
-            throw new InvalidOperationException("No Proton installation found. Please ensure Steam is installed with Proton (Experimental, 10.0, or 9.0)");
-        }
-        
-        var args = new List<string> { "run", "Extractors\\windows-x64\\7z.exe", "x", "-o" + tempFolder.Path, sFn.Name.ToString() };
-        
-        if (onlyFiles != null)
-        {
-            foreach (var file in onlyFiles)
+            // Handle archive source - same as regular 7zip extraction
+            if (sFn.Name is AbsolutePath abs)
             {
-                if (file != null)
-                {
-                    args.Add(file.ToString());
-                }
+                source = abs;
             }
-        }
-        
-        var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
+            else
             {
-                FileName = protonWrapperPath,
-                Arguments = string.Join(" ", args),
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true,
-                WorkingDirectory = KnownFolders.EntryPoint.ToString(),
-                EnvironmentVariables =
-                {
-                    ["WINEPREFIX"] = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Jackify/.engine/wineprefix",
-                    ["STEAM_COMPAT_DATA_PATH"] = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "/Jackify/.engine/wineprefix",
-                    ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = protonDetector.GetSteamClientInstallPath(),
-                    ["WINEDEBUG"] = "-all",
-                    ["DISPLAY"] = ""
-                }
+                spoolFile = _manager.CreateFile(sFn.Name.FileName.Extension);
+                await using var s = await sFn.GetStream();
+                await spoolFile.Value.Path.WriteAllAsync(s, token);
+                source = spoolFile.Value.Path;
             }
-        };
-        
-        _logger.LogDebug("Extracting with Proton 7z.exe: {Command}", string.Join(" ", args));
-        
-        var output = new StringBuilder();
-        var error = new StringBuilder();
-        
-        process.OutputDataReceived += (sender, e) =>
+            
+            _logger.LogDebug("Proton 7z.exe extracting {Source}", source.FileName);
+            
+            // Extract EVERYTHING using Proton 7z.exe - don't try to extract specific files
+            // The test script proved this works, so replicate that exactly
+            var processResult = await RunProton7zExtraction(source.ToString(), tempFolder.Path.ToString());
+            
+            if (processResult != 0)
+            {
+                throw new Exception($"Proton 7z.exe extraction failed with exit code {processResult}");
+            }
+            
+            _logger.LogDebug("Proton 7z.exe extraction completed successfully");
+            
+            // Process extracted files - same as regular extraction
+            var results = new Dictionary<RelativePath, T>();
+            var extractedFiles = tempFolder.Path.EnumerateFiles(recursive: true);
+            
+            foreach (var file in extractedFiles)
+            {
+                var relativePath = file.RelativeTo(tempFolder.Path);
+                if (!shouldExtract(relativePath)) continue;
+                
+                var extractedFile = new ExtractedNativeFile(file);
+                var result = await mapfn(relativePath, extractedFile);
+                results[relativePath] = result;
+                file.Delete(); // Clean up like regular extraction
+            }
+            
+            return results;
+        }
+        finally
         {
-            if (!string.IsNullOrEmpty(e.Data))
-                output.AppendLine(e.Data);
-        };
+            if (spoolFile != null) await spoolFile.Value.DisposeAsync();
+        }
+    }
+    
+    private async Task<int> RunProton7zExtraction(string archivePath, string outputPath)
+    {
+        // Replicate the exact working test script approach
+        var protonPath = "/home/deck/.local/share/Steam/steamapps/common/Proton - Experimental/proton";
+        var winePrefixPath = Path.Combine(Path.GetTempPath(), "jackify-proton-extraction");
+        Directory.CreateDirectory(winePrefixPath);
         
-        process.ErrorDataReceived += (sender, e) =>
+        // Use absolute path to 7z.exe to avoid path resolution issues
+        var sevenZipPath = "Extractors/windows-x64/7z.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint).ToString();
+        
+        var processInfo = new ProcessStartInfo
         {
-            if (!string.IsNullOrEmpty(e.Data))
-                error.AppendLine(e.Data);
+            FileName = protonPath,
+            Arguments = $"run \"{sevenZipPath}\" x -sccUTF-8 -o\"{outputPath}\" \"{archivePath}\"",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+            WorkingDirectory = KnownFolders.EntryPoint.ToString()
         };
-        
+
+        // Set environment variables properly 
+        processInfo.Environment["WINEPREFIX"] = winePrefixPath;
+        processInfo.Environment["STEAM_COMPAT_DATA_PATH"] = winePrefixPath;
+        processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = "/home/deck/.local/share/Steam";
+        processInfo.Environment["WINEDEBUG"] = "-all";
+        processInfo.Environment["DISPLAY"] = "";
+
+        _logger.LogDebug("PROTON EXTRACTION DEBUG:");
+        _logger.LogDebug("Command: {ProtonPath} {Arguments}", protonPath, processInfo.Arguments);
+        _logger.LogDebug("Working Dir: {WorkingDir}", processInfo.WorkingDirectory);
+        _logger.LogDebug("Archive exists: {ArchiveExists}", File.Exists(archivePath));
+        _logger.LogDebug("7z.exe exists: {ExtractorExists}", File.Exists(sevenZipPath));
+        _logger.LogDebug("Output dir exists: {OutputExists}", Directory.Exists(outputPath));
+        _logger.LogDebug("WINEPREFIX: {WinePrefix}", winePrefixPath);
+
+        using var process = new Process { StartInfo = processInfo };
         process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        await process.WaitForExitAsync(token);
+        
+        // Capture output for debugging
+        var stdout = await process.StandardOutput.ReadToEndAsync();
+        var stderr = await process.StandardError.ReadToEndAsync();
+        
+        await process.WaitForExitAsync();
         
         if (process.ExitCode != 0)
         {
-            _logger.LogError("Proton 7z.exe extraction failed with exit code {ExitCode}. Error: {Error}", process.ExitCode, error.ToString());
-            throw new Exception($"Proton 7z.exe extraction failed with exit code {process.ExitCode}");
+            _logger.LogError("Proton 7z.exe failed with exit code {ExitCode}", process.ExitCode);
+            _logger.LogError("STDOUT: {StdOut}", stdout);
+            _logger.LogError("STDERR: {StdErr}", stderr);
         }
-        
-        // Process extracted files
-        var results = new Dictionary<RelativePath, T>();
-        var extractedFiles = tempFolder.Path.EnumerateFiles(recursive: true);
-        
-        foreach (var file in extractedFiles)
+        else
         {
-            var relativePath = file.RelativeTo(tempFolder.Path);
-            if (!shouldExtract(relativePath)) continue;
-            
-            var extractedFile = new ExtractedNativeFile(file);
-            var result = await mapfn(relativePath, extractedFile);
-            results[relativePath] = result;
+            _logger.LogDebug("Proton 7z.exe succeeded");
+            _logger.LogDebug("STDOUT: {StdOut}", stdout);
         }
         
-        return results;
+        return process.ExitCode;
     }
 
     private async Task<IDictionary<RelativePath,T>> GatheringExtractWithBTAR<T>

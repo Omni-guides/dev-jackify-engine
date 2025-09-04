@@ -36,6 +36,7 @@
         <ProjectReference Include="..\Wabbajack.Common\Wabbajack.Common.csproj" />
         <ProjectReference Include="..\Wabbajack.Compression.BSA\Wabbajack.Compression.BSA.csproj" />
         <ProjectReference Include="..\Wabbajack.Paths\Wabbajack.Paths.csproj" />
+        <ProjectReference Include="..\Wabbajack.Hashing.PHash\Wabbajack.Hashing.PHash.csproj" />
     </ItemGroup>
 
     <ItemGroup>
