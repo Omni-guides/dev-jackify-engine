@@ -45,6 +45,8 @@ public static class CommandLineBuilderExtensions
         services.AddSingleton<ListGames>();
         CommandLineBuilder.RegisterCommand<ListModlists>(ListModlists.Definition, c => ((ListModlists)c).Run);
         services.AddSingleton<ListModlists>();
+        CommandLineBuilder.RegisterCommand<GetModlistUrl>(GetModlistUrl.Definition, c => ((GetModlistUrl)c).Run);
+        services.AddSingleton<GetModlistUrl>();
         CommandLineBuilder.RegisterCommand<MegaLogin>(MegaLogin.Definition, c => ((MegaLogin)c).Run);
         services.AddSingleton<MegaLogin>();
         CommandLineBuilder.RegisterCommand<MirrorFile>(MirrorFile.Definition, c => ((MirrorFile)c).Run);

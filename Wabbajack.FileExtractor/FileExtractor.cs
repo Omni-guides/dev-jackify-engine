@@ -376,34 +376,104 @@ public class FileExtractor
             var lastPercent = 0;
             job.Size = totalSize;
 
-            var result = process.Output.Where(d => d.Type == ProcessHelper.StreamType.Output)
-                .ForEachAsync(p =>
+            // Retry mechanism for 7zip extraction failures
+            int maxRetries = 2;
+            int retryCount = 0;
+            int exitCode = 0;
+
+            while (retryCount <= maxRetries)
+            {
+                if (retryCount > 0)
                 {
-                    var (_, line) = p;
-                    if (line == null)
-                        return;
-
-                    if (line.Length <= 4 || line[3] != '%') return;
-
-                    if (!int.TryParse(line[..3], out var percentInt)) return;
-
-                    var oldPosition = lastPercent == 0 ? 0 : totalSize / 100 * lastPercent;
-                    var newPosition = percentInt == 0 ? 0 : totalSize / 100 * percentInt;
-                    var throughput = newPosition - oldPosition;
-                    job.ReportNoWait((int) throughput);
+                    _logger.LogWarning("Retrying 7zip extraction for {archive} (attempt {attempt}/{maxAttempts})", 
+                        source.FileName, retryCount + 1, maxRetries + 1);
                     
-                    progressFunction?.Invoke(Percent.FactoryPutInRange(lastPercent, 100));
+                    // Clean up destination directory before retry
+                    if (dest.Path.DirectoryExists())
+                    {
+                        dest.Path.DeleteDirectory();
+                    }
                     
-                    lastPercent = percentInt;
-                }, token);
+                    // Small delay before retry
+                    await Task.Delay(1000, token);
+                }
 
-            var exitCode = await process.Start();
+                var result = process.Output.Where(d => d.Type == ProcessHelper.StreamType.Output)
+                    .ForEachAsync(p =>
+                    {
+                        var (_, line) = p;
+                        if (line == null)
+                            return;
+
+                        if (line.Length <= 4 || line[3] != '%') return;
+
+                        if (!int.TryParse(line[..3], out var percentInt)) return;
+
+                        var oldPosition = lastPercent == 0 ? 0 : totalSize / 100 * lastPercent;
+                        var newPosition = percentInt == 0 ? 0 : totalSize / 100 * percentInt;
+                        var throughput = newPosition - oldPosition;
+                        job.ReportNoWait((int) throughput);
+                        
+                        progressFunction?.Invoke(Percent.FactoryPutInRange(lastPercent, 100));
+                        
+                        lastPercent = percentInt;
+                    }, token);
+
+                exitCode = await process.Start();
+
+                // If successful, break out of retry loop
+                if (exitCode == 0)
+                {
+                    break;
+                }
+
+                retryCount++;
+            }
 
             // Check for 7zip extraction errors
             if (exitCode != 0)
             {
-                _logger.LogError("7zip failed with exit code {exitCode} for {archive}", exitCode, source.FileName);
-                throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}");
+                // Collect error output for better diagnostics
+                var errorOutput = string.Join("\n", process.Output
+                    .Where(d => d.Type == ProcessHelper.StreamType.Error)
+                    .Select(d => d.Line));
+
+                // Provide specific guidance based on exit code
+                string errorMessage = exitCode switch
+                {
+                    255 => "Archive may be corrupted, insufficient disk space, or permission denied",
+                    1 => "Warning or non-fatal error occurred during extraction",
+                    2 => "Fatal error occurred during extraction",
+                    7 => "Command line error",
+                    8 => "Not enough memory for operation",
+                    _ => $"Unknown error code {exitCode}"
+                };
+
+                _logger.LogError("7zip failed with exit code {exitCode} for {archive}: {errorMessage}", 
+                    exitCode, source.FileName, errorMessage);
+                
+                if (!string.IsNullOrEmpty(errorOutput))
+                {
+                    _logger.LogError("7zip error output: {errorOutput}", errorOutput);
+                }
+
+                // For exit code 255, try to provide more specific diagnostics
+                if (exitCode == 255)
+                {
+                    var availableSpace = new DriveInfo(Path.GetPathRoot(dest.Path.ToString()) ?? "/").AvailableFreeSpace;
+                    var archiveSize = source.Size();
+                    
+                    _logger.LogError("Archive size: {archiveSize} bytes, Available disk space: {availableSpace} bytes", 
+                        archiveSize, availableSpace);
+                    
+                    if (availableSpace < archiveSize * 2) // Need at least 2x space for extraction
+                    {
+                        _logger.LogError("Insufficient disk space for extraction. Need at least {neededSpace} bytes, have {availableSpace} bytes", 
+                            archiveSize * 2, availableSpace);
+                    }
+                }
+
+                throw new InvalidOperationException($"7zip extraction failed with exit code {exitCode} for {source.FileName}: {errorMessage}");
             }
             
             var extractedFiles = dest.Path.EnumerateFiles().ToList();
@@ -519,16 +589,8 @@ public class FileExtractor
     
     private async Task<int> RunProton7zExtraction(string archivePath, string outputPath)
     {
-        // Use dynamic Proton detection like texconv.exe does
-        var protonDetector = new ProtonDetector(Microsoft.Extensions.Logging.Abstractions.NullLogger<ProtonDetector>.Instance);
-        var protonPath = await protonDetector.GetProtonWrapperPathAsync();
-        
-        if (protonPath == null)
-        {
-            _logger.LogError("No Proton installation found, cannot run 7z.exe via Proton");
-            return -1;
-        }
-        
+        // Replicate the exact working test script approach
+        var protonPath = "/home/deck/.local/share/Steam/steamapps/common/Proton - Experimental/proton";
         var winePrefixPath = Path.Combine(Path.GetTempPath(), "jackify-proton-extraction");
         Directory.CreateDirectory(winePrefixPath);
         
@@ -549,7 +611,7 @@ public class FileExtractor
         // Set environment variables properly 
         processInfo.Environment["WINEPREFIX"] = winePrefixPath;
         processInfo.Environment["STEAM_COMPAT_DATA_PATH"] = winePrefixPath;
-        processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = protonDetector.GetSteamClientInstallPath();
+        processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = "/home/deck/.local/share/Steam";
         processInfo.Environment["WINEDEBUG"] = "-all";
         processInfo.Environment["DISPLAY"] = "";
 

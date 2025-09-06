@@ -750,7 +750,16 @@ public abstract class AInstaller<T>
                 var path = _configuration.Install.Combine(d.To);
                 if (!existingfiles.Contains(path)) return null;
 
-                return await FileHashCache.FileHashCachedAsync(path, token) == d.Hash ? d : null;
+                try
+                {
+                    return await FileHashCache.FileHashCachedAsync(path, token) == d.Hash ? d : null;
+                }
+                catch (FileNotFoundException)
+                {
+                    // File was deleted between enumeration and hash check - treat as if it doesn't exist
+                    _logger.LogDebug("File {File} was deleted during optimization, treating as missing", path);
+                    return null;
+                }
             })
             .Do(d =>
             {

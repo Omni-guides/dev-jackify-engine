@@ -125,7 +125,26 @@ public class FileHashCache
         var hash = await TryGetHashCache(file);
         if (hash != default) return hash;
 
-        using var job = await _limiter.Begin($"Hashing {file.FileName}", file.Size(), token);
+        // Check if file exists before calling Size() to prevent race conditions
+        if (!file.FileExists())
+        {
+            throw new FileNotFoundException($"Could not find file '{file}'");
+        }
+
+        // Get file size safely - if file was deleted between FileExists() and Size(), 
+        // Size() will throw FileNotFoundException which we'll let propagate
+        long fileSize;
+        try
+        {
+            fileSize = file.Size();
+        }
+        catch (FileNotFoundException)
+        {
+            // File was deleted between FileExists() check and Size() call
+            throw new FileNotFoundException($"Could not find file '{file}'");
+        }
+
+        using var job = await _limiter.Begin($"Hashing {file.FileName}", fileSize, token);
         await using var fs = file.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
 
         hash = await fs.HashingCopy(Stream.Null, token, job);
