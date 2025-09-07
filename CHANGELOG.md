@@ -2,7 +2,7 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
-## Version 0.3.11 - 2025-01-XX (STABLE)
+## Version 0.3.11 - 2025-09-07 (STABLE)
 ### Proton Path Detection Fix - Dynamic System Compatibility
 * **Fixed Hardcoded Paths**: Replaced hardcoded `/home/deck` Proton paths in 7z.exe fallback with dynamic detection
 * **Cross-System Compatibility**: 7z.exe fallback now works on any Linux system regardless of Steam/Proton installation location
