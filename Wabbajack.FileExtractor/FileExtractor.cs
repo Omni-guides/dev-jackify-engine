@@ -589,8 +589,17 @@ public class FileExtractor
     
     private async Task<int> RunProton7zExtraction(string archivePath, string outputPath)
     {
-        // Replicate the exact working test script approach
-        var protonPath = "/home/deck/.local/share/Steam/steamapps/common/Proton - Experimental/proton";
+        // Use dynamic Proton detection like texconv.exe does
+        var protonDetector = new ProtonDetector(Microsoft.Extensions.Logging.Abstractions.NullLogger<ProtonDetector>.Instance);
+
+        var protonPath = await protonDetector.GetProtonWrapperPathAsync();
+        
+        if (protonPath == null)
+        {
+            _logger.LogError("No Proton installation found, cannot run 7z.exe via Proton");
+            return -1;
+        }
+        
         var winePrefixPath = Path.Combine(Path.GetTempPath(), "jackify-proton-extraction");
         Directory.CreateDirectory(winePrefixPath);
         
@@ -611,7 +620,7 @@ public class FileExtractor
         // Set environment variables properly 
         processInfo.Environment["WINEPREFIX"] = winePrefixPath;
         processInfo.Environment["STEAM_COMPAT_DATA_PATH"] = winePrefixPath;
-        processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = "/home/deck/.local/share/Steam";
+        processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = protonDetector.GetSteamClientInstallPath();
         processInfo.Environment["WINEDEBUG"] = "-all";
         processInfo.Environment["DISPLAY"] = "";
 
