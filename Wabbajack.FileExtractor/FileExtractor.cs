@@ -186,48 +186,44 @@ public class FileExtractor
 
         if (onlyFiles != null && onlyFiles.Count != results.Count)
         {
-            // Safety net: Check if this might be a foreign character encoding issue that we missed
+            // Log missing files for debugging
+            var missingFiles = onlyFiles.Where(expected => !results.ContainsKey(expected)).ToList();
+            var extractedFiles = results.Keys.ToList();
+            
+            _logger.LogError("Sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files extracted. Missing files:", 
+                sFn.Name.FileName, results.Count, onlyFiles.Count);
+            
+            foreach (var missing in missingFiles.Take(10)) // Log first 10 missing files
+            {
+                _logger.LogError("Missing: {MissingFile}", missing);
+            }
+            
+            if (missingFiles.Count > 10)
+            {
+                _logger.LogError("... and {AdditionalCount} more missing files", missingFiles.Count - 10);
+            }
+            
+            // Check if this is a backslash path issue by looking at the missing files
+            var hasBackslashPaths = missingFiles.Any(f => f.ToString().Contains('\\'));
+            if (hasBackslashPaths)
+            {
+                _logger.LogError("Missing files contain backslash path separators - this indicates a path handling issue, not an encoding issue. NO FALLBACK.");
+                // For backslash path issues, throw immediately - no fallback
+                throw new Exception(
+                    $"Sanity check error extracting {sFn.Name} - {results.Count} results, expected {onlyFiles.Count}. Backslash path handling issue detected - this must be fixed in the extraction logic.");
+            }
+            
+            // Check if this is a foreign character encoding issue that we missed
             bool couldBeForeignCharIssue = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && 
                                           (sFn.Name.FileName.Extension == Extension.FromPath(".zip") ||
                                            sFn.Name.FileName.Extension == Extension.FromPath(".7z") ||
                                            sFn.Name.FileName.Extension == Extension.FromPath(".rar")) &&
                                           onlyFiles.Count < 1000; // Only try for reasonably sized archives
             
-            if (couldBeForeignCharIssue && !ContainsProblematicCharacters(onlyFiles))
+            var hasForeignChars = missingFiles.Any(f => ContainsProblematicCharacters(new HashSet<RelativePath> { f }));
+            if (couldBeForeignCharIssue && hasForeignChars)
             {
-                // Log missing files to help identify new problematic characters
-                var missingFiles = onlyFiles.Where(expected => !results.ContainsKey(expected)).ToList();
-                var extractedFiles = results.Keys.ToList();
-                
-                _logger.LogWarning("Sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files. Missing files with potential encoding issues:", 
-                    sFn.Name.FileName, results.Count, onlyFiles.Count);
-                
-                foreach (var missing in missingFiles.Take(5)) // Log first 5 to avoid spam
-                {
-                    _logger.LogWarning("Missing: {MissingFile}", missing);
-                }
-                
-                // Check if any extracted files have suspicious characters that we haven't catalogued
-                var suspiciousChars = new HashSet<char>();
-                foreach (var extracted in extractedFiles.Take(10))
-                {
-                    foreach (var c in extracted.ToString())
-                    {
-                        if (c > 127 && !ProblematicChars.Contains(c)) // Non-ASCII chars we don't know about
-                        {
-                            suspiciousChars.Add(c);
-                        }
-                    }
-                }
-                
-                if (suspiciousChars.Count > 0)
-                {
-                    _logger.LogWarning("Found potentially problematic characters in extracted files: {SuspiciousChars}", 
-                        string.Join(", ", suspiciousChars.Select(c => $"'{c}' (U+{(int)c:X4})")));
-                }
-                
-                // Try Proton fallback as last resort
-                _logger.LogWarning("Attempting Proton 7z.exe fallback for potential foreign character issue");
+                _logger.LogWarning("Missing files contain foreign characters - attempting Proton 7z.exe fallback for encoding issue");
                 
                 try
                 {
@@ -251,8 +247,9 @@ public class FileExtractor
                 }
             }
             
+            // If we get here, either no fallback was attempted or it failed
             throw new Exception(
-                $"Sanity check error extracting {sFn.Name} - {results.Count} results, expected {onlyFiles.Count}");
+                $"Sanity check error extracting {sFn.Name} - {results.Count} results, expected {onlyFiles.Count}. This is a critical extraction failure that must be resolved.");
         }
         return results;
     }
@@ -931,47 +928,79 @@ public class FileExtractor
 
     /// <summary>
     /// Moves any files with backslashes in their names to the correct subdirectory structure.
+    /// This handles the case where 7zip on Linux creates files with backslashes in their names
+    /// instead of proper directory structures.
     /// </summary>
     private async Task MoveFilesWithBackslashesToSubdirs(string extractionDir)
     {
         if (!Directory.Exists(extractionDir))
         {
-            _logger.LogWarning($"[POST-PROCESS] Extraction directory does not exist: {extractionDir}");
+            _logger.LogWarning("[POST-PROCESS] Extraction directory does not exist: {ExtractionDir}", extractionDir);
             return;
         }
         
         var files = Directory.GetFiles(extractionDir, "*", SearchOption.AllDirectories);
         var backslashFiles = new List<string>();
         
+        // Find all files with backslashes in their names
         foreach (var file in files)
         {
             var fileName = Path.GetFileName(file);
             if (fileName.Contains("\\"))
             {
                 backslashFiles.Add(file);
+                _logger.LogDebug("[POST-PROCESS] Found file with backslashes in name: {FileName}", fileName);
             }
         }
+        
+        if (backslashFiles.Count == 0)
+        {
+            _logger.LogDebug("[POST-PROCESS] No files with backslashes found in {ExtractionDir}", extractionDir);
+            return;
+        }
+        
+        _logger.LogInformation("[POST-PROCESS] Found {Count} files with backslashes in names, fixing directory structure", backslashFiles.Count);
         
         foreach (var file in backslashFiles)
         {
             var fileName = Path.GetFileName(file);
             var parts = fileName.Split(new[] {'\\'}, StringSplitOptions.RemoveEmptyEntries);
-            var newPath = Path.Combine(Path.GetDirectoryName(file)!, Path.Combine(parts));
-            var newDir = Path.GetDirectoryName(newPath)!;
+            
+            if (parts.Length < 2)
+            {
+                _logger.LogWarning("[POST-PROCESS] File {FileName} has backslashes but insufficient path parts", fileName);
+                continue;
+            }
+            
+            // Create the proper directory structure
+            var fileNameOnly = parts.Last();
+            var dirParts = parts.Take(parts.Length - 1).ToArray();
+            var newDir = Path.Combine(Path.GetDirectoryName(file)!, Path.Combine(dirParts));
+            var newPath = Path.Combine(newDir, fileNameOnly);
             
             try
             {
-                if (!Directory.Exists(newDir))
+                // Create the directory structure
+                Directory.CreateDirectory(newDir);
+                
+                // Move the file to the correct location
+                if (File.Exists(newPath))
                 {
-                    Directory.CreateDirectory(newDir);
+                    _logger.LogWarning("[POST-PROCESS] Target file already exists, overwriting: {NewPath}", newPath);
                 }
+                
                 File.Move(file, newPath, overwrite: true);
+                _logger.LogDebug("[POST-PROCESS] Moved {OldFile} -> {NewPath}", file, newPath);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[POST-PROCESS] Failed to move {File} to {NewPath}", file, newPath);
+                // Don't rethrow - continue processing other files
             }
         }
+        
+        _logger.LogInformation("[POST-PROCESS] Completed backslash path correction for {Count} files", backslashFiles.Count);
         await Task.CompletedTask;
     }
+}
 }
