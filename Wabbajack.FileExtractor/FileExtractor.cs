@@ -186,63 +186,74 @@ public class FileExtractor
 
         if (onlyFiles != null && onlyFiles.Count != results.Count)
         {
-            // Log missing files for debugging
+            // Log missing files for debugging at debug level first - will escalate to error if fallback fails
             var missingFiles = onlyFiles.Where(expected => !results.ContainsKey(expected)).ToList();
             var extractedFiles = results.Keys.ToList();
             
-            _logger.LogError("Sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files extracted. Missing files:", 
+            _logger.LogDebug("Sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files extracted. Missing files:", 
                 sFn.Name.FileName, results.Count, onlyFiles.Count);
             
             foreach (var missing in missingFiles.Take(10)) // Log first 10 missing files
             {
-                _logger.LogError("Missing: {MissingFile}", missing);
+                _logger.LogDebug("Missing: {MissingFile}", missing);
             }
             
             if (missingFiles.Count > 10)
             {
-                _logger.LogError("... and {AdditionalCount} more missing files", missingFiles.Count - 10);
+                _logger.LogDebug("... and {AdditionalCount} more missing files", missingFiles.Count - 10);
             }
             
-            // Check if this is a backslash path issue by looking at the missing files
-            var hasBackslashPaths = missingFiles.Any(f => f.ToString().Contains('\\'));
-            if (hasBackslashPaths)
-            {
-                _logger.LogError("Missing files contain backslash path separators - this indicates a path handling issue, not an encoding issue. NO FALLBACK.");
-                // For backslash path issues, throw immediately - no fallback
-                throw new Exception(
-                    $"Sanity check error extracting {sFn.Name} - {results.Count} results, expected {onlyFiles.Count}. Backslash path handling issue detected - this must be fixed in the extraction logic.");
-            }
-            
-            // Check if this is a foreign character encoding issue that we missed
+            // Check if this might be a foreign character encoding issue that we missed
             bool couldBeForeignCharIssue = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && 
                                           (sFn.Name.FileName.Extension == Extension.FromPath(".zip") ||
                                            sFn.Name.FileName.Extension == Extension.FromPath(".7z") ||
                                            sFn.Name.FileName.Extension == Extension.FromPath(".rar")) &&
                                           onlyFiles.Count < 1000; // Only try for reasonably sized archives
             
-            var hasForeignChars = missingFiles.Any(f => ContainsProblematicCharacters(new HashSet<RelativePath> { f }));
-            if (couldBeForeignCharIssue && hasForeignChars)
+            if (couldBeForeignCharIssue && !ContainsProblematicCharacters(onlyFiles))
             {
-                _logger.LogWarning("Missing files contain foreign characters - attempting Proton 7z.exe fallback for encoding issue");
+                _logger.LogDebug("Attempting Proton 7z.exe fallback for potential encoding issue in {ArchiveName}", sFn.Name.FileName);
                 
                 try
                 {
                     var protonResults = await GatheringExtractWithProton7Zip(sFn, shouldExtract, mapfn, onlyFiles, token, progressFunction);
                     if (protonResults.Count == onlyFiles.Count)
                     {
-                        _logger.LogInformation("Proton 7z.exe fallback successful for {ArchiveName}: {Count}/{ExpectedCount} files extracted", 
+                        _logger.LogDebug("Proton 7z.exe fallback successful for {ArchiveName}: {Count}/{ExpectedCount} files extracted", 
                             sFn.Name.FileName, protonResults.Count, onlyFiles.Count);
                         return protonResults;
                     }
                     else
                     {
-                        _logger.LogWarning("Proton 7z.exe fallback still has count mismatch for {ArchiveName}: {Count}/{ExpectedCount}", 
+                        _logger.LogError("Proton 7z.exe fallback still has count mismatch for {ArchiveName}: {Count}/{ExpectedCount}", 
                             sFn.Name.FileName, protonResults.Count, onlyFiles.Count);
+                        // Log the original failure details now that fallback also failed
+                        _logger.LogError("Original sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files extracted. Missing files:", 
+                            sFn.Name.FileName, results.Count, onlyFiles.Count);
+                        foreach (var missing in missingFiles.Take(10))
+                        {
+                            _logger.LogError("Missing: {MissingFile}", missing);
+                        }
+                        if (missingFiles.Count > 10)
+                        {
+                            _logger.LogError("... and {AdditionalCount} more missing files", missingFiles.Count - 10);
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Proton 7z.exe fallback failed for {ArchiveName}", sFn.Name.FileName);
+                    // Log the original failure details now that fallback also failed
+                    _logger.LogError("Original sanity check failed for {ArchiveName} - {ResultCount}/{ExpectedCount} files extracted. Missing files:", 
+                        sFn.Name.FileName, results.Count, onlyFiles.Count);
+                    foreach (var missing in missingFiles.Take(10))
+                    {
+                        _logger.LogError("Missing: {MissingFile}", missing);
+                    }
+                    if (missingFiles.Count > 10)
+                    {
+                        _logger.LogError("... and {AdditionalCount} more missing files", missingFiles.Count - 10);
+                    }
                     // Fall through to original exception
                 }
             }
@@ -478,9 +489,10 @@ public class FileExtractor
                 source.FileName, extractedFiles.Count, dest.Path);
 
             // Post-process: move files with backslashes in their names to correct subdirectories
+            // This must happen BEFORE processing and sanity checks to avoid path mismatches
             await MoveFilesWithBackslashesToSubdirs(dest.Path.ToString());
 
-            // Add small delay to ensure file system sync after extraction
+            // Add small delay to ensure file system sync after post-processing
             await Task.Delay(100, token);
 
             
@@ -1002,5 +1014,4 @@ public class FileExtractor
         _logger.LogInformation("[POST-PROCESS] Completed backslash path correction for {Count} files", backslashFiles.Count);
         await Task.CompletedTask;
     }
-}
 }
