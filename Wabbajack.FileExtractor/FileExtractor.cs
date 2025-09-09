@@ -971,7 +971,7 @@ public class FileExtractor
             return;
         }
         
-        _logger.LogInformation("[POST-PROCESS] Found {Count} files with backslashes in names, fixing directory structure", backslashFiles.Count);
+        _logger.LogDebug("[POST-PROCESS] Found {Count} files with backslashes in names, fixing directory structure", backslashFiles.Count);
         
         foreach (var file in backslashFiles)
         {
@@ -980,7 +980,7 @@ public class FileExtractor
             
             if (parts.Length < 2)
             {
-                _logger.LogWarning("[POST-PROCESS] File {FileName} has backslashes but insufficient path parts", fileName);
+                _logger.LogDebug("[POST-PROCESS] File {FileName} has backslashes but insufficient path parts", fileName);
                 continue;
             }
             
@@ -998,7 +998,7 @@ public class FileExtractor
                 // Move the file to the correct location
                 if (File.Exists(newPath))
                 {
-                    _logger.LogWarning("[POST-PROCESS] Target file already exists, overwriting: {NewPath}", newPath);
+                    _logger.LogDebug("[POST-PROCESS] Target file already exists, overwriting: {NewPath}", newPath);
                 }
                 
                 File.Move(file, newPath, overwrite: true);
@@ -1011,7 +1011,7 @@ public class FileExtractor
             }
         }
         
-        _logger.LogInformation("[POST-PROCESS] Completed backslash path correction for {Count} files", backslashFiles.Count);
+        _logger.LogDebug("[POST-PROCESS] Completed backslash path correction for {Count} files", backslashFiles.Count);
         await Task.CompletedTask;
     }
 }
