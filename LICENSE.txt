@@ -1,3 +1,23 @@
+# Jackify Engine - Linux Fork of Wabbajack
+
+  Jackify Engine is a Linux-native fork of Wabbajack, designed specifically for Steam Deck and other Linux gaming
+   platforms.
+
+  ## Copyright Notice
+
+  Original Wabbajack codebase: Copyright (C) Wabbajack contributors
+  Jackify Engine modifications: Copyright (C) 2025 Jackify Engine contributors
+
+  This fork maintains compatibility with upstream Wabbajack while adding Linux-specific functionality including:
+  - Proton-based texture processing using upstream texconv.exe
+  - Native Linux game detection and file system handling
+  - Steam Deck optimized user experience
+
+  ## License
+
+  This project is licensed under the GNU General Public License v3.0, same as upstream Wabbajack.
+  The complete license text follows below.
+
 The Wabbajack Codebase is under the GPLv3 license. 
 
 Modlists produced by Wabbajack under the [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)

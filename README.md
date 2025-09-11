@@ -7,7 +7,7 @@ A Linux-native fork of [Wabbajack](https://github.com/wabbajack-tools/wabbajack)
 Jackify Engine is a minimal Linux port of Wabbajack that:
 - Targets .NET 8.0 for optimal Linux compatibility
 - Uses Steam Proton for texture processing (texconv.exe)
-- Maintains upstream performance (~30-40 minutes for modlist installation)
+- Maintains upstream performance 
 - Achieves identical output hashes to Windows Wabbajack
 - Requires no system Wine installation
 
