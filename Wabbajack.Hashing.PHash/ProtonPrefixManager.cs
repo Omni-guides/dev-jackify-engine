@@ -12,7 +12,7 @@ using System.Diagnostics;
 
 namespace Wabbajack.Hashing.PHash
 {
-    public class ProtonPrefixManager
+    public class ProtonPrefixManager : IDisposable
     {
         private readonly AbsolutePath _prefixBaseDir;
         private readonly AbsolutePath _currentPrefix;
@@ -169,9 +169,23 @@ namespace Wabbajack.Hashing.PHash
 
         public void Cleanup()
         {
-            // Optionally clean up the prefix directory
-            // For now, we'll keep it for potential reuse
-            // _currentPrefix.DeleteDirectory();
+            try
+            {
+                if (_currentPrefix.DirectoryExists())
+                {
+                    _logger.LogDebug("Cleaning up Wine prefix: {PrefixPath}", _currentPrefix);
+                    _currentPrefix.DeleteDirectory();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to cleanup Wine prefix: {PrefixPath}", _currentPrefix);
+            }
+        }
+
+        public void Dispose()
+        {
+            Cleanup();
         }
     }
 }

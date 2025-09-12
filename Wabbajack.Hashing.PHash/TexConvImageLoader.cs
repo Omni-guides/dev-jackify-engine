@@ -20,7 +20,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Wabbajack.Hashing.PHash;
 
-public class TexConvImageLoader : IImageLoader
+public class TexConvImageLoader : IImageLoader, IDisposable
 {
     private readonly SignatureChecker _sigs;
     private readonly TemporaryFileManager _tempManager;
@@ -257,6 +257,11 @@ public class TexConvImageLoader : IImageLoader
         img.Mutate(x => x.Resize(512, 512, KnownResamplers.Welch).Grayscale(GrayscaleMode.Bt601));
 
         return new DTOs.Texture.PHash(ImagePhash.ComputeDigest(new CrossPlatformImageLoader.ImageBitmap((Image<Rgba32>)img)).Coefficients);
+    }
+
+    public void Dispose()
+    {
+        _protonManager?.Dispose();
     }
 
 }

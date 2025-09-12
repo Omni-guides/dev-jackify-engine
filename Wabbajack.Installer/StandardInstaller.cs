@@ -214,6 +214,14 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         SetScreenSizeInPrefs();
 
         await ExtractedModlistFolder!.DisposeAsync();
+        
+        // Cleanup Wine prefixes used for texture processing
+        if (ImageLoader is IDisposable disposableImageLoader)
+        {
+            disposableImageLoader.Dispose();
+            _logger.LogDebug("Cleaned up texture processing resources");
+        }
+        
         await _wjClient.SendMetric(MetricNames.FinishInstall, ModList.Name);
 
         NextStep(Consts.StepFinished, "Finished", 1);
