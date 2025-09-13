@@ -434,7 +434,17 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             await using var a = BSADispatch.CreateBuilder(bsa.State, _manager);
             var streams = await bsa.FileStates.PMapAllBatchedAsync(_limiter, async state =>
             {
-                var fs = sourceDir.Combine(state.Path).Open(FileMode.Open, FileAccess.Read, FileShare.Read);
+                // Try the normal path first
+                var filePath = sourceDir.Combine(state.Path);
+                if (!filePath.FileExists())
+                {
+                    // Fallback: try with forward slashes converted to backslashes (Linux path issue)
+                    // Files may have been extracted with backslashes in their names
+                    var backslashPath = state.Path.ToString().Replace("/", "\\");
+                    filePath = sourceDir.Combine(backslashPath.ToRelativePath());
+                }
+                
+                var fs = filePath.Open(FileMode.Open, FileAccess.Read, FileShare.Read);
                 await a.AddFile(state, fs, token);
                 return fs;
             }).ToList();
