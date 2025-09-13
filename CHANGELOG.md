@@ -2,6 +2,37 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.3.13 - 2025-09-13 (STABLE)
+### Wine Prefix Cleanup & Download System Fixes
+* **Wine Prefix Cleanup**: Implemented automatic cleanup of ~281MB Wine prefix directories after each modlist installation
+* **Manual Download Handling**: Fixed installation crashes when manual downloads are required - now stops cleanly instead of continuing with KeyNotFoundException
+* **Download Error Messaging**: Enhanced error reporting with detailed mod information (Nexus Game/ModID/FileID, Google Drive, HTTP sources) for better troubleshooting
+* **GoogleDrive & MEGA Integration**: Fixed download regressions and integrated with Jackify's configuration system
+* **Creation Club File Handling**: Fixed incorrect re-download attempts for Creation Club files with hash mismatches (e.g., Curios case sensitivity issues)
+
+### Technical Implementation
+* **ProtonPrefixManager**: Implemented IDisposable pattern with automatic cleanup after texture processing
+* **TexConvImageLoader**: Added proper disposal to trigger prefix cleanup
+* **StandardInstaller**: Added cleanup call after installation completion
+* **IUserInterventionHandler**: Added HasManualDownloads() method to all intervention handler classes
+* **Download Error Context**: Created GetModInfoFromArchive method to extract source information for failed downloads
+* **MEGA Token Provider**: Modified to use Jackify config directory (~/.config/jackify/encrypted/) while maintaining upstream security
+* **EncryptedJsonTokenProvider**: Made KeyPath virtual to allow path override for Jackify integration
+* **GameFileSource Filter**: Excluded GameFileSource files from re-download logic to prevent incorrect re-download attempts for locally sourced files
+
+### Bug Fixes
+* **GoogleDrive Downloads**: Fixed 'Request URI is null' error and added handling for application/octet-stream content type responses
+* **Manual Download Flow**: Installation now returns InstallResult.DownloadFailed when manual downloads are required instead of crashing
+* **Error Context**: Generic 'Http Error NotFound' messages now include specific file name, source, and original error details
+* **MEGA Compatibility**: Restored upstream MEGA behavior while integrating with Jackify's configuration system
+* **Creation Club File Re-download**: Fixed incorrect re-download attempts for Creation Club files with hash mismatches - now properly handled as locally sourced files
+
+### User Experience
+* **Disk Space Management**: No more accumulation of Wine prefix directories consuming hundreds of MB per installation
+* **Clean Error Handling**: Manual download requirements now show clear summary instead of stack traces
+* **Better Troubleshooting**: Download failures now show exactly which mod/file failed and where it came from
+* **Configuration Integration**: MEGA tokens properly stored in Jackify's config directory structure
+
 ## Version 0.3.11 - 2025-09-07 (STABLE)
 ### Proton Path Detection Fix - Dynamic System Compatibility
 * **Fixed Hardcoded Paths**: Replaced hardcoded `/home/deck` Proton paths in 7z.exe fallback with dynamic detection

@@ -142,7 +142,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         if (token.IsCancellationRequested) return InstallResult.Cancelled;
 
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
-        var nonManualMissing = missing.Where(a => a.State is not Manual).ToList();
+        var nonManualMissing = missing.Where(a => a.State is not Manual && a.State is not GameFileSource).ToList();
         
         // Auto-cleanup corrupted files and retry once
         if (nonManualMissing.Count > 0)
