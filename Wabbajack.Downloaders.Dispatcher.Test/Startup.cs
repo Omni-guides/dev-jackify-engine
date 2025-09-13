@@ -26,5 +26,10 @@ public class Startup
         {
             intervention.Cancel();
         }
+        
+        public bool HasManualDownloads()
+        {
+            return false;
+        }
     }
 }

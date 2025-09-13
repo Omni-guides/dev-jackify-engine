@@ -129,6 +129,14 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
         await DownloadArchives(token);
         if (token.IsCancellationRequested) return InstallResult.Cancelled;
+        
+        // Check if any manual downloads were encountered and stop installation if so
+        var interventionHandler = _serviceProvider.GetService<IUserInterventionHandler>();
+        if (interventionHandler != null && interventionHandler.HasManualDownloads())
+        {
+            _logger.LogInformation("Manual downloads detected. Stopping installation.");
+            return InstallResult.DownloadFailed;
+        }
 
         await HashArchives(token);
         if (token.IsCancellationRequested) return InstallResult.Cancelled;

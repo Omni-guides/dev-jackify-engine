@@ -34,4 +34,9 @@ public class CLIUserInterventionHandler : IUserInterventionHandler
     {
         return new List<ManualDownload>(_manualDownloads);
     }
+    
+    public bool HasManualDownloads()
+    {
+        return _manualDownloads.Count > 0;
+    }
 }

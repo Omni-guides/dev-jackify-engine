@@ -9,4 +9,9 @@ public class ThrowingUserInterventionHandler : IUserInterventionHandler
     {
         throw new Exception("Unexpected user intervention, this should throw");
     }
+    
+    public bool HasManualDownloads()
+    {
+        return false;
+    }
 }
