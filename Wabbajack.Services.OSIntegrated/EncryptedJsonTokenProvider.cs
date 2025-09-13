@@ -23,7 +23,7 @@ public class EncryptedJsonTokenProvider<T> : ITokenProvider<T>
 
     private string? EnvValue => Environment.GetEnvironmentVariable(_key.ToUpperInvariant().Replace("-", "_"));
 
-    private AbsolutePath KeyPath => KnownFolders.WabbajackAppLocal.Combine("encrypted", _key);
+    protected virtual AbsolutePath KeyPath => KnownFolders.WabbajackAppLocal.Combine("encrypted", _key);
 
     public async ValueTask SetToken(T token)
     {
