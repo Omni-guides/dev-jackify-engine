@@ -30,6 +30,7 @@ public class ExtractedMemoryFile : IExtractedFile
     public async ValueTask Move(AbsolutePath newPath, CancellationToken token)
     {
         await using var stream = await _factory.GetStream();
+        newPath.Parent.CreateDirectory(); // Ensure parent directory exists
         await newPath.WriteAllAsync(stream, token);
         _disposed = true;
     }
