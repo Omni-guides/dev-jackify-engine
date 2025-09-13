@@ -509,12 +509,26 @@ public abstract class AInstaller<T>
             {
                 var outputPath = _configuration.Downloads.Combine(archive.Name);
                 
-                // Download using standard method - bandwidth monitor measures network interface directly
-                var hash = await _downloadDispatcher.Download(archive, outputPath, token);
-                
-                // Update completed count
-                Interlocked.Increment(ref completedCount);
-                UpdateProgress(1);
+                try
+                {
+                    // Download using standard method - bandwidth monitor measures network interface directly
+                    var hash = await _downloadDispatcher.Download(archive, outputPath, token);
+                    
+                    // Update completed count
+                    Interlocked.Increment(ref completedCount);
+                    UpdateProgress(1);
+                }
+                catch (Exception ex)
+                {
+                    // Provide detailed error information about which mod/file failed
+                    var modInfo = GetModInfoFromArchive(archive);
+                    _logger.LogError("Failed to download '{FileName}'{ModInfo}: {ErrorMessage}", 
+                        archive.Name, 
+                        modInfo, 
+                        ex.Message);
+                    _logger.LogDebug(ex, "Full download error details for {FileName}", archive.Name);
+                    throw; // Re-throw to maintain original behavior
+                }
             });
             
         // Clean up display task
@@ -526,6 +540,35 @@ public abstract class AInstaller<T>
         
         // Clean up bandwidth monitor
         bandwidthMonitor.Dispose();
+    }
+
+    private string GetModInfoFromArchive(Archive archive)
+    {
+        try
+        {
+            // Try to extract meaningful mod information from the archive state
+            switch (archive.State)
+            {
+                case DTOs.DownloadStates.Nexus nexus:
+                    return $" from Nexus (Game: {nexus.Game}, ModID: {nexus.ModID}, FileID: {nexus.FileID})";
+                case DTOs.DownloadStates.GoogleDrive gdrive:
+                    return $" from Google Drive (ID: {gdrive.Id})";
+                case DTOs.DownloadStates.Http http:
+                    return $" from {http.Url.Host}";
+                case DTOs.DownloadStates.Mega mega:
+                    return $" from Mega (URL: {mega.Url})";
+                case DTOs.DownloadStates.MediaFire mediafire:
+                    return $" from MediaFire (URL: {mediafire.Url})";
+                case DTOs.DownloadStates.Manual manual:
+                    return $" (Manual download from: {manual.Url})";
+                default:
+                    return $" (Source: {archive.State.GetType().Name})";
+            }
+        }
+        catch
+        {
+            return "";
+        }
     }
 
     private async Task SendDownloadMetrics(List<Archive> missing)
