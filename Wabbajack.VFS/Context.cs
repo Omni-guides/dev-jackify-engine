@@ -153,7 +153,7 @@ public class Context
 
         if (runInParallel)
         {
-            await filesByParent[top].PDoAll(
+            await filesByParent[top].PDoAll(Limiter,
                 async file => await HandleFile(file, new ExtractedNativeFile(file.AbsoluteName) {CanMove = false}));
         }
         else

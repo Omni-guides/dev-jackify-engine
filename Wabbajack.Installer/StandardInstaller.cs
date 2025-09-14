@@ -515,7 +515,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         NextStep(Consts.StepInstalling, "Installing Included Files", ModList.Directives.OfType<InlineFile>().Count());
         await ModList.Directives
             .OfType<InlineFile>()
-            .PDoAll(async directive =>
+            .PDoAll(_limiter, async directive =>
             {
                 UpdateProgress(1);
                 var outPath = _configuration.Install.Combine(directive.To);
