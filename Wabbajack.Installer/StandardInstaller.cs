@@ -141,6 +141,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         await HashArchives(token);
         if (token.IsCancellationRequested) return InstallResult.Cancelled;
 
+        // Check for missing archives before proceeding to VFS operations
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
         var nonManualMissing = missing.Where(a => a.State is not Manual && a.State is not GameFileSource).ToList();
         

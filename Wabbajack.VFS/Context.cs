@@ -195,7 +195,12 @@ public class Context
 
         void BackFillOne(HashRelativePath file)
         {
-            var parent = newFiles[file.Hash];
+            if (!newFiles.TryGetValue(file.Hash, out var parent))
+            {
+                Logger.LogError("Archive with hash {Hash} is referenced by the modlist but not found in HashedArchives. This usually means the archive failed to download, is corrupted, or is missing from the downloads directory.", file.Hash);
+                throw new InvalidOperationException($"Missing archive with hash {file.Hash}. The archive referenced by the modlist was not found in the HashedArchives collection. This typically indicates a download failure or corrupted file. Please re-run the installation to download missing archives, or check that all required files are present in your downloads directory.");
+            }
+            
             foreach (var path in file.Parts)
             {
                 if (parentchild.TryGetValue((parent, path), out var foundParent))
