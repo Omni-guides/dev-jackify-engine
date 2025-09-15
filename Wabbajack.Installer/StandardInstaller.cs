@@ -504,6 +504,60 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             tempDir.DeleteDirectory();
             UpdateProgress(1);
         }
+
+        // Clean up any stale Proton prefixes
+        try
+        {
+            var jackifyDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("Jackify");
+            if (jackifyDir.DirectoryExists())
+            {
+                var prefixCount = 0;
+                foreach (var dir in Directory.EnumerateDirectories(jackifyDir.ToString()))
+                {
+                    var name = Path.GetFileName(dir);
+                    if (!string.IsNullOrEmpty(name) && name.StartsWith(".prefix-", StringComparison.Ordinal))
+                    {
+                        try
+                        {
+                            // Safety: ensure it's under Jackify dir
+                            if (!dir.StartsWith(jackifyDir.ToString(), StringComparison.Ordinal))
+                                continue;
+
+                            // Unlink dosdevices symlinks before deletion
+                            var dosDevices = Path.Combine(dir, "pfx", "dosdevices");
+                            if (Directory.Exists(dosDevices))
+                            {
+                                foreach (var entry in Directory.EnumerateFileSystemEntries(dosDevices))
+                                {
+                                    try
+                                    {
+                                        var fi = new FileInfo(entry);
+                                        if (fi.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                                            File.Delete(entry);
+                                    }
+                                    catch { /* ignore */ }
+                                }
+                            }
+
+                            dir.ToAbsolutePath().DeleteDirectory();
+                            prefixCount++;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to remove stale prefix: {Prefix}", dir);
+                        }
+                    }
+                }
+                if (prefixCount > 0)
+                {
+                    _logger.LogInformation("Cleaned up {Count} stale Proton prefixes", prefixCount);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to clean up stale Proton prefixes");
+        }
     }
 
     private async Task InstallIncludedFiles(CancellationToken token)

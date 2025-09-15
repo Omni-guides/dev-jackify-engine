@@ -171,11 +171,43 @@ namespace Wabbajack.Hashing.PHash
         {
             try
             {
-                if (_currentPrefix.DirectoryExists())
+                if (!_currentPrefix.DirectoryExists()) return;
+
+                _logger.LogDebug("Cleaning up Wine prefix: {PrefixPath}", _currentPrefix);
+
+                // Safety: ensure prefix is under our managed base directory
+                var prefixStr = _currentPrefix.ToString();
+                var baseStr = _prefixBaseDir.ToString();
+                if (!prefixStr.StartsWith(baseStr, StringComparison.Ordinal))
                 {
-                    _logger.LogDebug("Cleaning up Wine prefix: {PrefixPath}", _currentPrefix);
-                    _currentPrefix.DeleteDirectory();
+                    _logger.LogWarning("Refusing to delete prefix outside base dir: {PrefixPath}", _currentPrefix);
+                    return;
                 }
+
+                // Best-effort clean specific risky area: unlink dosdevices symlinks rather than recurse
+                var dosDevices = _currentPrefix.Combine("pfx").Combine("dosdevices");
+                if (dosDevices.DirectoryExists())
+                {
+                    try
+                    {
+                        foreach (var entry in Directory.EnumerateFileSystemEntries(dosDevices.ToString()))
+                        {
+                            var fi = new FileInfo(entry);
+                            if (fi.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                            {
+                                // Remove the link itself; do not follow
+                                try { File.Delete(entry); } catch { /* ignore */ }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Ignoring error while unlinking dosdevices entries");
+                    }
+                }
+
+                // Now delete the prefix directory tree (our DeleteDirectory already skips symlinks)
+                _currentPrefix.DeleteDirectory();
             }
             catch (Exception ex)
             {
