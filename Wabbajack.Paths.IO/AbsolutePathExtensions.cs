@@ -296,6 +296,10 @@ public static class AbsolutePathExtensions
       
         foreach (var directory in Directory.GetDirectories(path.ToString()))
         {
+            var diChild = new DirectoryInfo(directory);
+            // Skip symlinked directories to avoid traversing host mounts like Proton dosdevices (e.g., z: -> /)
+            if (diChild.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                continue;
             DeleteDirectory(directory.ToAbsolutePath(), dontDeleteIfNotEmpty);
         }
         try

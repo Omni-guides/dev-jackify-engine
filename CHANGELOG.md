@@ -9,6 +9,9 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Download Error Messaging**: Enhanced error reporting with detailed mod information (Nexus Game/ModID/FileID, Google Drive, HTTP sources) for better troubleshooting
 * **GoogleDrive & MEGA Integration**: Fixed download regressions and integrated with Jackify's configuration system
 * **Creation Club File Handling**: Fixed incorrect re-download attempts for Creation Club files with hash mismatches (e.g., Curios case sensitivity issues)
+* **BSA Extraction Fix**: Fixed DirectoryNotFoundException during BSA building by ensuring parent directories exist before file operations
+* **Resource Settings Compliance**: Fixed resource settings not being respected by adding missing limiter parameters to VFS and Installer operations
+* **VFS KeyNotFoundException Crash**: Fixed crashes during "Priming VFS" phase when archives are missing - now catches missing archives before VFS operations and provides clear error guidance
 
 ### Technical Implementation
 * **ProtonPrefixManager**: Implemented IDisposable pattern with automatic cleanup after texture processing
@@ -19,6 +22,9 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **MEGA Token Provider**: Modified to use Jackify config directory (~/.config/jackify/encrypted/) while maintaining upstream security
 * **EncryptedJsonTokenProvider**: Made KeyPath virtual to allow path override for Jackify integration
 * **GameFileSource Filter**: Excluded GameFileSource files from re-download logic to prevent incorrect re-download attempts for locally sourced files
+* **ExtractedMemoryFile**: Added parent directory creation in Move method to prevent DirectoryNotFoundException during BSA extraction
+* **VFS Context**: Added missing Limiter parameter to PDoAll calls to respect VFS MaxTasks setting from resource_settings.json, and defensive error handling in BackfillMissing for missing archives
+* **StandardInstaller**: Added missing Limiter parameter to InlineFile processing to respect Installer MaxTasks setting, and moved missing archive detection earlier to prevent VFS crashes
 
 ### Bug Fixes
 * **GoogleDrive Downloads**: Fixed 'Request URI is null' error and added handling for application/octet-stream content type responses
@@ -26,12 +32,16 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Error Context**: Generic 'Http Error NotFound' messages now include specific file name, source, and original error details
 * **MEGA Compatibility**: Restored upstream MEGA behavior while integrating with Jackify's configuration system
 * **Creation Club File Re-download**: Fixed incorrect re-download attempts for Creation Club files with hash mismatches - now properly handled as locally sourced files
+* **BSA Building DirectoryNotFoundException**: Fixed crashes during BSA building when parent directories don't exist - now creates directories automatically
+* **Resource Settings Ignored**: Fixed VFS and Installer operations ignoring configured MaxTasks settings - now properly respects resource_settings.json limits
+* **VFS Priming KeyNotFoundException**: Fixed KeyNotFoundException crashes with missing archive hashes (e.g., 'MXmKeWd+KkI=') during VFS priming - now detects missing archives early with clear error messages
 
 ### User Experience
 * **Disk Space Management**: No more accumulation of Wine prefix directories consuming hundreds of MB per installation
 * **Clean Error Handling**: Manual download requirements now show clear summary instead of stack traces
 * **Better Troubleshooting**: Download failures now show exactly which mod/file failed and where it came from
 * **Configuration Integration**: MEGA tokens properly stored in Jackify's config directory structure
+* **Resource Control**: Users can now properly control CPU usage during installation by modifying resource_settings.json (VFS, Installer, File Extractor MaxTasks)
 
 ## Version 0.3.11 - 2025-09-07 (STABLE)
 ### Proton Path Detection Fix - Dynamic System Compatibility
