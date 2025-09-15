@@ -1,6 +1,6 @@
 # Jackify Engine
 
-A Linux-native fork of [Wabbajack](https://github.com/wabbajack-tools/wabbajack) that provides full modlist installation capability on Linux systems using Proton for texture processing.
+A Linux-native fork of [Wabbajack](https://github.com/wabbajack-tools/wabbajack) (specifically wabbajack-cli.exe) that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
 ## Overview
 
