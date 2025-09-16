@@ -8,6 +8,11 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 * **Enhanced Error Logging**: Improved error reporting with ArchiveName, Game, ModID, and FileID context for better troubleshooting
 * **Manual Download Logic**: Removed inappropriate 404 fallback to manual downloads (file doesn't exist) while preserving 403 Forbidden fallback for auth issues
 
+### Configurable Data Directory
+* **Shared Config Integration**: jackify-engine now reads `jackify_data_dir` from `~/.config/jackify/config.json`
+* **Replaced Hardcoded Paths**: All `~/Jackify/*` usages now use the configured data directory (prefixes, logs, temp, `.engine`, `downloaded_mod_lists`)
+* **Safe Fallback**: If config read fails, defaults to `~/Jackify`
+
 ## Version 0.3.13 - 2025-09-13 (STABLE)
 ### Wine Prefix Cleanup & Download System Fixes
 * **Wine Prefix Cleanup**: Implemented automatic cleanup of ~281MB Wine prefix directories after each modlist installation
