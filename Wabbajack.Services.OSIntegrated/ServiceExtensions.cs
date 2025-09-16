@@ -11,7 +11,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Wabbajack.Common;
 using Wabbajack.Compiler;
-using Wabbajack.Configuration;
 using Wabbajack.Downloaders;
 using Wabbajack.Downloaders.GameFile;
 using Wabbajack.Downloaders.VerificationCache;
@@ -129,7 +128,6 @@ public static class ServiceExtensions
 
         service.AddSingleton<SettingsManager>();
         service.AddSingleton<ResourceSettingsManager>();
-        service.AddSingleton<MainSettings>(s => GetAppSettings(s, MainSettings.SettingsFileName));
 
         // Resources
 
@@ -244,17 +242,6 @@ public static class ServiceExtensions
         }
     }
     
-    public static MainSettings GetAppSettings(IServiceProvider provider, string name)
-    {
-        var settingsManager = provider.GetRequiredService<SettingsManager>();
-        var settings = Task.Run(() => settingsManager.Load<MainSettings>(name)).Result;
-        if (settings.Upgrade())
-        {
-            settingsManager.Save(MainSettings.SettingsFileName, settings).FireAndForget();
-        }
-
-        return settings;
-    }
     
 
     private static void CleanAllTempData(AbsolutePath path)
