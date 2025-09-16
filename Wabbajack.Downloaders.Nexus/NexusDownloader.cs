@@ -123,6 +123,16 @@ public class NexusDownloader : ADownloader<Nexus>, IUrlDownloader
     {
         if (IsManualDebugMode || !(await _api.IsPremium(token)))
         {
+            if (IsManualDebugMode)
+            {
+                _logger.LogDebug("Manual download mode enabled for {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID})", 
+                    archive.Name, state.Game, state.ModID, state.FileID);
+            }
+            else
+            {
+                _logger.LogInformation("User is not Premium, falling back to manual download for {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID})", 
+                    archive.Name, state.Game, state.ModID, state.FileID);
+            }
             return await DownloadManually(archive, state, destination, job, token);
         }
         else
@@ -157,10 +167,20 @@ public class NexusDownloader : ADownloader<Nexus>, IUrlDownloader
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "While downloading from the Nexus {Message}", ex.Message);
+                _logger.LogError(ex, "Nexus API error downloading {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID}): {Message}", 
+                    archive.Name, state.Game, state.ModID, state.FileID, ex.Message);
+                
                 if (ex.StatusCode == HttpStatusCode.Forbidden)
                 {
+                    _logger.LogInformation("Nexus API returned {StatusCode} for {ArchiveName} (ModID: {ModID}, FileID: {FileID}), falling back to manual download", 
+                        ex.StatusCode, archive.Name, state.ModID, state.FileID);
                     return await DownloadManually(archive, state, destination, job, token);
+                }
+                else if (ex.StatusCode == HttpStatusCode.NotFound)
+                {
+                    _logger.LogError("Nexus mod file not found: {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID}). " +
+                        "This mod or file may have been removed from NexusMods. Please check the modlist for updates or contact the modlist author.", 
+                        archive.Name, state.Game, state.ModID, state.FileID);
                 }
 
                 throw;
