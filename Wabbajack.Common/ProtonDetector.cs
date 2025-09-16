@@ -27,8 +27,8 @@ public class ProtonDetector
     /// <returns>Path to the Wine prefix</returns>
     public AbsolutePath GetWinePrefix()
     {
-        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return homeDir.ToAbsolutePath().Combine("Jackify", ".engine", "wineprefix");
+        var dataDir = JackifyConfig.GetDataDirectory();
+        return dataDir.Combine(".engine", "wineprefix");
     }
 
     /// <summary>
@@ -378,7 +378,7 @@ public class ProtonDetector
         try
         {
             // Create temporary directory for Wine prefix in our own directory structure
-            var jackifyEngineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Jackify", ".engine");
+            var jackifyEngineDir = Path.Combine(JackifyConfig.GetDataDirectory().ToString(), ".engine");
             var tempPrefixPath = Path.Combine(jackifyEngineDir, $"temp-wine-{Guid.NewGuid()}");
             Directory.CreateDirectory(tempPrefixPath);
             
@@ -469,7 +469,7 @@ public class ProtonDetector
     {
         try
         {
-            var jackifyEngineDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Jackify", ".engine");
+            var jackifyEngineDir = Path.Combine(JackifyConfig.GetDataDirectory().ToString(), ".engine");
             if (!Directory.Exists(jackifyEngineDir))
                 return;
 

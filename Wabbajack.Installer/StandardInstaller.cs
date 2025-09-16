@@ -508,7 +508,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         // Clean up any stale Proton prefixes
         try
         {
-            var jackifyDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("Jackify");
+            var jackifyDir = JackifyConfig.GetDataDirectory();
             if (jackifyDir.DirectoryExists())
             {
                 var prefixCount = 0;

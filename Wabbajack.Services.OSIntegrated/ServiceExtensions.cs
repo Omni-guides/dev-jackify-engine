@@ -62,7 +62,7 @@ public static class ServiceExtensions
             useSpecialCharacters:false, 
             length: 8);
 
-        var tempBase = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("Jackify").Combine("temp");
+        var tempBase = JackifyConfig.GetDataDirectory().Combine("temp");
         service.AddTransient(s =>
             new TemporaryFileManager(tempBase.Combine(Environment.ProcessId + "_" + ShortId.Generate(shortIdOptions))));
 
@@ -121,9 +121,9 @@ public static class ServiceExtensions
         service.AddSingleton(s => new Configuration
         {
             EncryptedDataLocation = KnownFolders.WabbajackAppLocal.Combine("encrypted"),
-            ModListsDownloadLocation = KnownFolders.EntryPoint.Combine("downloaded_mod_lists"),
+            ModListsDownloadLocation = JackifyConfig.GetDataDirectory().Combine("downloaded_mod_lists"),
             SavedSettingsLocation = GetJackifyConfigPath(),
-            LogLocation = KnownFolders.LauncherAwarePath.Combine("logs"),
+            LogLocation = JackifyConfig.GetDataDirectory().Combine("logs"),
             ImageCacheLocation = KnownFolders.WabbajackAppLocal.Combine("image_cache")
         });
 
