@@ -6,7 +6,7 @@
         <TargetFramework Condition=" '$(OS)' != 'Windows_NT'">net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
-        <VERSION Condition=" '$(VERSION)' == ''">0.3.13</VERSION>
+        <VERSION Condition=" '$(VERSION)' == ''">0.3.14</VERSION>
         <Version>$(VERSION)</Version>
         <AssemblyName>jackify-engine</AssemblyName>
         <PublishTrimmed>false</PublishTrimmed>

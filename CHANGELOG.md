@@ -2,6 +2,12 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.3.14 - 2025-01-XX (DEVELOPMENT)
+### Nexus API Error Handling Improvements
+* **404 Not Found Handling**: Added specific error messages for missing/removed Nexus mods with actionable user guidance
+* **Enhanced Error Logging**: Improved error reporting with ArchiveName, Game, ModID, and FileID context for better troubleshooting
+* **Manual Download Logic**: Removed inappropriate 404 fallback to manual downloads (file doesn't exist) while preserving 403 Forbidden fallback for auth issues
+
 ## Version 0.3.13 - 2025-09-13 (STABLE)
 ### Wine Prefix Cleanup & Download System Fixes
 * **Wine Prefix Cleanup**: Implemented automatic cleanup of ~281MB Wine prefix directories after each modlist installation
