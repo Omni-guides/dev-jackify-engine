@@ -5,6 +5,7 @@ using System.CommandLine.NamingConventionBinder;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wabbajack.CLI.Builder;
+using Wabbajack.Common;
 using Wabbajack.Paths;
 using Wabbajack.Paths.IO;
 using Wabbajack.Services.OSIntegrated;
@@ -31,7 +32,7 @@ public class Decrypt
     public async Task<int> Run(AbsolutePath output, string name)
     {
         var data = await name.ToRelativePath()
-            .RelativeTo(KnownFolders.WabbajackAppLocal.Combine("encrypted"))
+            .RelativeTo(JackifyConfig.GetDataDirectory().Combine("encrypted"))
             .FromEncryptedDataFile();
         _logger.LogInformation("Decrypting {bytes} bytes into `{key}`", data.Length, name);
         await output.WriteAllBytesAsync(data);

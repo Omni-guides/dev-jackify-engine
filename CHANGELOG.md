@@ -11,6 +11,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ### Configurable Data Directory
 * **Shared Config Integration**: jackify-engine now reads `jackify_data_dir` from `~/.config/jackify/config.json`
 * **Replaced Hardcoded Paths**: All `~/Jackify/*` usages now use the configured data directory (prefixes, logs, temp, `.engine`, `downloaded_mod_lists`)
+* **Complete Path Migration**: All application data now uses the configurable directory including caches (`GlobalHashCache2.sqlite`, `GlobalVFSCache5.sqlite`, `VerificationCacheV3.sqlite`, `PatchCache/`), encrypted data, image cache, and token storage.
 * **Safe Fallback**: If config read fails, defaults to `~/Jackify`
 
 ## Version 0.3.13 - 2025-09-13 (STABLE)

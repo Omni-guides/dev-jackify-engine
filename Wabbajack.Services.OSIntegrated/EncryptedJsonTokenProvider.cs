@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Wabbajack.Common;
 using Wabbajack.DTOs.JsonConverters;
 using Wabbajack.Networking.Http.Interfaces;
 using Wabbajack.Paths;
@@ -23,7 +24,7 @@ public class EncryptedJsonTokenProvider<T> : ITokenProvider<T>
 
     private string? EnvValue => Environment.GetEnvironmentVariable(_key.ToUpperInvariant().Replace("-", "_"));
 
-    protected virtual AbsolutePath KeyPath => KnownFolders.WabbajackAppLocal.Combine("encrypted", _key);
+    protected virtual AbsolutePath KeyPath => JackifyConfig.GetDataDirectory().Combine("encrypted", _key);
 
     public async ValueTask SetToken(T token)
     {

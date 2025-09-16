@@ -1,6 +1,7 @@
 using System;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using Wabbajack.Common;
 using Wabbajack.DTOs.Logins;
 using Wabbajack.Hashing.xxHash64;
 using Wabbajack.Networking.Http.Interfaces;
@@ -11,8 +12,8 @@ namespace Wabbajack.Services.OSIntegrated.TokenProviders;
 
 public class WabbajackApiTokenProvider : ITokenProvider<WabbajackApiState>
 {
-    private AbsolutePath MetricsPath => KnownFolders.WabbajackAppLocal.Combine("encrypted", "metrics-key");
-    private AbsolutePath AuthorKeyPath => KnownFolders.WabbajackAppLocal.Combine("author-api-key.txt");
+    private AbsolutePath MetricsPath => JackifyConfig.GetDataDirectory().Combine("encrypted", "metrics-key");
+    private AbsolutePath AuthorKeyPath => JackifyConfig.GetDataDirectory().Combine("author-api-key.txt");
 
     public async ValueTask<WabbajackApiState?> Get()
     {

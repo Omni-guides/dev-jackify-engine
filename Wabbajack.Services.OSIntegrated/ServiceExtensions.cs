@@ -71,14 +71,14 @@ public static class ServiceExtensions
         service.AddSingleton(s => options.UseLocalCache
             ? new FileHashCache(s.GetService<TemporaryFileManager>()!.CreateFile().Path,
                 s.GetService<IResource<FileHashCache>>()!)
-            : new FileHashCache(KnownFolders.AppDataLocal.Combine("Wabbajack", "GlobalHashCache2.sqlite"),
+            : new FileHashCache(JackifyConfig.GetDataDirectory().Combine("GlobalHashCache2.sqlite"),
                 s.GetService<IResource<FileHashCache>>()!));
 
         service.AddSingleton<IVfsCache>(s =>
         {
             var diskCache = options.UseLocalCache
                 ? new VFSDiskCache(s.GetService<TemporaryFileManager>()!.CreateFile().Path)
-                : new VFSDiskCache(KnownFolders.WabbajackAppLocal.Combine("GlobalVFSCache5.sqlite"));
+                : new VFSDiskCache(JackifyConfig.GetDataDirectory().Combine("GlobalVFSCache5.sqlite"));
             var cesiCache = new CesiVFSCache(s.GetRequiredService<ILogger<CesiVFSCache>>(),
                 s.GetRequiredService<Client>());
             return new FallthroughVFSCache(new IVfsCache[] {diskCache});
@@ -86,7 +86,7 @@ public static class ServiceExtensions
 
         service.AddSingleton<IBinaryPatchCache>(s => options.UseLocalCache
             ? new BinaryPatchCache(s.GetRequiredService<ILogger<BinaryPatchCache>>(), s.GetService<TemporaryFileManager>()!.CreateFolder().Path)
-            : new BinaryPatchCache(s.GetRequiredService<ILogger<BinaryPatchCache>>(),KnownFolders.WabbajackAppLocal.Combine("PatchCache")));
+            : new BinaryPatchCache(s.GetRequiredService<ILogger<BinaryPatchCache>>(), JackifyConfig.GetDataDirectory().Combine("PatchCache")));
 
 
         service.AddSingleton<IVerificationCache>(s =>
@@ -98,7 +98,7 @@ public static class ServiceExtensions
                     TimeSpan.FromDays(1),
                     dtos)
                 : new VerificationCache(s.GetRequiredService<ILogger<VerificationCache>>(),
-                    KnownFolders.WabbajackAppLocal.Combine("VerificationCacheV3.sqlite"),
+                    JackifyConfig.GetDataDirectory().Combine("VerificationCacheV3.sqlite"),
                     TimeSpan.FromDays(1),
                     dtos);
         });
@@ -120,11 +120,11 @@ public static class ServiceExtensions
 
         service.AddSingleton(s => new Configuration
         {
-            EncryptedDataLocation = KnownFolders.WabbajackAppLocal.Combine("encrypted"),
+            EncryptedDataLocation = JackifyConfig.GetDataDirectory().Combine("encrypted"),
             ModListsDownloadLocation = JackifyConfig.GetDataDirectory().Combine("downloaded_mod_lists"),
             SavedSettingsLocation = GetJackifyConfigPath(),
             LogLocation = JackifyConfig.GetDataDirectory().Combine("logs"),
-            ImageCacheLocation = KnownFolders.WabbajackAppLocal.Combine("image_cache")
+            ImageCacheLocation = JackifyConfig.GetDataDirectory().Combine("image_cache")
         });
 
         service.AddSingleton<SettingsManager>();
@@ -240,7 +240,7 @@ public static class ServiceExtensions
         }
         else
         {
-            return KnownFolders.WabbajackAppLocal.Combine("saved_settings");
+            return JackifyConfig.GetDataDirectory().Combine("saved_settings");
         }
     }
     

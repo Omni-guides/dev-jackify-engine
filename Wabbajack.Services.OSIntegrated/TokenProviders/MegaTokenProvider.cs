@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using System.Runtime.InteropServices;
+using Wabbajack.Common;
 using Wabbajack.Downloaders;
 using Wabbajack.DTOs.JsonConverters;
 using Wabbajack.Paths;
@@ -25,7 +26,7 @@ public class MegaTokenProvider : EncryptedJsonTokenProvider<MegaToken>
         }
         else
         {
-            return KnownFolders.WabbajackAppLocal.Combine("saved_settings");
+            return JackifyConfig.GetDataDirectory().Combine("saved_settings");
         }
     }
 }

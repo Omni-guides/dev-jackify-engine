@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wabbajack.CLI.Builder;
+using Wabbajack.Common;
 using Wabbajack.Hashing.xxHash64;
 using Wabbajack.Paths;
 using Wabbajack.Paths.IO;
@@ -40,7 +41,7 @@ public class Reset
             await wabbajackProcess.WaitForExitAsync();
         }
         Console.WriteLine("Deleting %localappdata%\\Wabbajack...");
-        KnownFolders.WabbajackAppLocal.DeleteDirectory();
+        JackifyConfig.GetDataDirectory().DeleteDirectory();
         if(fileName != null)
         {
             Console.WriteLine("Restarting Wabbajack...");
