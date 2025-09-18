@@ -2,6 +2,17 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.3.15 - 2025-09-18 (DEVELOPMENT)
+### .wabbajack File Hash Verification Fix
+* **Hash Cache Issue**: Fixed corrupted .wabbajack files being used due to stale hash cache entries
+* **Fresh Hash Verification**: .wabbajack files now always verify actual file hash instead of using cached values
+* **Improved UX**: Eliminates need for users to manually delete corrupted .wabbajack files to force re-download
+
+### ModOrganizer.ini Path Handling Fix
+* **Spaces in Directory Names**: Fixed Wine path conversion to properly quote paths containing spaces
+* **ModOrganizer.ini Compatibility**: Paths like "Somnium Jackify" now correctly converted to quoted Wine paths
+* **Prevents Path Parsing Issues**: Eliminates potential issues with Mod Organizer not recognizing paths with spaces
+
 ## Version 0.3.14 - 2025-01-XX (DEVELOPMENT)
 ### Nexus API Error Handling Improvements
 * **404 Not Found Handling**: Added specific error messages for missing/removed Nexus mods with actionable user guidance

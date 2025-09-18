@@ -191,7 +191,15 @@ public class ProtonDetector
     public static string ConvertToWinePath(string linuxPath)
     {
         // Convert Linux path to Wine path with backslashes
-        return $"Z:{linuxPath.Replace('/', '\\')}";
+        var winePath = $"Z:{linuxPath.Replace('/', '\\')}";
+        
+        // Quote the path if it contains spaces to prevent parsing issues
+        if (winePath.Contains(' '))
+        {
+            return $"\"{winePath}\"";
+        }
+        
+        return winePath;
     }
 
     /// <summary>

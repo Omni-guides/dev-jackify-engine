@@ -155,7 +155,7 @@ public class Install
             wabbajack = downloadDir.Combine(fileName);
         }
         
-        if (wabbajack.FileExists() && await _cache.FileHashCachedAsync(wabbajack, token) == list.DownloadMetadata!.Hash)
+        if (wabbajack.FileExists() && await wabbajack.Hash(token) == list.DownloadMetadata!.Hash)
         {
             _logger.LogInformation("File already exists, using cached file");
             return true;
