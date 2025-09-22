@@ -69,7 +69,9 @@ public class FileExtractor
         'ć', 'č', 'đ', 'š', 'ž', 'ř', 'ě', 'ý', 'ť', 'ď', 'ň', 'ĺ', 'ľ',
         'Ć', 'Č', 'Đ', 'Š', 'Ž', 'Ř', 'Ě', 'Ý', 'Ť', 'Ď', 'Ň', 'Ĺ', 'Ľ',
         // Other
-        'ß', 'þ', 'ð', 'Þ', 'Ð'
+        'ß', 'þ', 'ð', 'Þ', 'Ð',
+        // Degree symbol reported by user (e.g., Mirror°.nif)
+        '°'
     };
 
     private readonly IResource<FileExtractor> _limiter;
@@ -632,6 +634,8 @@ public class FileExtractor
         processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = protonDetector.GetSteamClientInstallPath();
         processInfo.Environment["WINEDEBUG"] = "-all";
         processInfo.Environment["DISPLAY"] = "";
+        processInfo.Environment["WAYLAND_DISPLAY"] = "";
+        processInfo.Environment["WINEDLLOVERRIDES"] = "msdia80.dll=n;conhost.exe=d;cmd.exe=d";
 
         _logger.LogDebug("PROTON EXTRACTION DEBUG:");
         _logger.LogDebug("Command: {ProtonPath} {Arguments}", protonPath, processInfo.Arguments);

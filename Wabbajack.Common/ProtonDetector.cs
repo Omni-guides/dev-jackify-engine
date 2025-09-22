@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wabbajack.Paths;
@@ -45,8 +47,67 @@ public class ProtonDetector
             return null;
         }
 
-        // Try Steam's proton command
         var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        // 1) Config: ~/.config/jackify/config.json { "proton_path": "/path/to/proton_dir" }
+        try
+        {
+            var configPath = Path.Combine(homeDir, ".config", "jackify", "config.json");
+            if (File.Exists(configPath))
+            {
+                using var fs = File.OpenRead(configPath);
+                using var doc = JsonDocument.Parse(fs);
+                if (doc.RootElement.TryGetProperty("proton_path", out var pp))
+                {
+                    var configuredDir = pp.GetString();
+                    if (!string.IsNullOrWhiteSpace(configuredDir))
+                    {
+                        var configuredWrapper = Path.Combine(configuredDir!, "proton");
+                        if (File.Exists(configuredWrapper))
+                        {
+                            _logger.LogDebug("Using Proton wrapper from config: {Path}", configuredWrapper);
+                            _logger.LogDebug("Proton source: config -> {Path}", configuredWrapper);
+                            return configuredWrapper;
+                        }
+                        _logger.LogDebug("Configured Proton wrapper not found at {Path}", configuredWrapper);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Error reading Jackify config for Proton path; falling back");
+        }
+
+        // 2) Prefer GE-Proton10-* from compatibilitytools.d
+        var compatRoots = new[]
+        {
+            Path.Combine(homeDir, ".local", "share", "Steam", "steamapps", "compatibilitytools.d"),
+            Path.Combine(homeDir, ".steam", "steam", "steamapps", "compatibilitytools.d")
+        };
+        foreach (var root in compatRoots)
+        {
+            try
+            {
+                if (!Directory.Exists(root)) continue;
+                foreach (var dir in Directory.EnumerateDirectories(root, "GE-Proton10-*") )
+                {
+                    var wrapper = Path.Combine(dir, "proton");
+                    if (File.Exists(wrapper))
+                    {
+                        _logger.LogDebug("Found GE Proton wrapper at {Path}", wrapper);
+                        _logger.LogDebug("Proton source: GE -> {Path}", wrapper);
+                        return wrapper;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error scanning {Root} for GE Proton", root);
+            }
+        }
+
+        // 3) Valve Proton fallback order: Experimental -> 10.0 -> 9.0
         var steamProtonPaths = new[]
         {
             Path.Combine(homeDir, ".local", "share", "Steam", "steamapps", "common", "Proton - Experimental", "proton"),
@@ -61,13 +122,19 @@ public class ProtonDetector
         {
             if (File.Exists(protonPath))
             {
-                _logger.LogDebug($"Found Steam Proton wrapper at {protonPath}");
+                _logger.LogDebug("Found Steam Proton wrapper at {Path}", protonPath);
+                try
+                {
+                    var versionName = new DirectoryInfo(Path.GetDirectoryName(protonPath)!).Name;
+                    _logger.LogDebug("Proton source: Valve {Version} -> {Path}", versionName, protonPath);
+                }
+                catch { /* best-effort */ }
                 return protonPath;
             }
         }
 
-        _logger.LogDebug("No Proton wrapper found, falling back to Wine binary");
-        return await GetWinePathAsync();
+        _logger.LogError("No Proton wrapper found - Proton is required for jackify-engine");
+        return null;
     }
 
     /// <summary>

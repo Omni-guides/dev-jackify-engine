@@ -70,7 +70,9 @@ namespace Wabbajack.Hashing.PHash
                     ["STEAM_COMPAT_DATA_PATH"] = _currentPrefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
                     ["WINEDEBUG"] = "-all",
-                    ["DISPLAY"] = ""
+                    ["DISPLAY"] = "",
+                    ["WAYLAND_DISPLAY"] = "",
+                    ["WINEDLLOVERRIDES"] = "msdia80.dll=n;conhost.exe=d;cmd.exe=d"
                 },
                 ThrowOnNonZeroExitCode = true,
                 LogError = true
@@ -101,7 +103,9 @@ namespace Wabbajack.Hashing.PHash
                     ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
                     ["WINEDEBUG"] = "-all",
-                    ["DISPLAY"] = ""
+                    ["DISPLAY"] = "",
+                    ["WAYLAND_DISPLAY"] = "",
+                    ["WINEDLLOVERRIDES"] = "msdia80.dll=n;conhost.exe=d;cmd.exe=d"
                 },
                 WorkingDirectory = KnownFolders.EntryPoint.ToString(),
                 ThrowOnNonZeroExitCode = true,
@@ -130,7 +134,9 @@ namespace Wabbajack.Hashing.PHash
                     ["STEAM_COMPAT_DATA_PATH"] = prefix.ToString(),
                     ["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = _protonDetector.GetSteamClientInstallPath(),
                     ["WINEDEBUG"] = "-all",
-                    ["DISPLAY"] = ""
+                    ["DISPLAY"] = "",
+                    ["WAYLAND_DISPLAY"] = "",
+                    ["WINEDLLOVERRIDES"] = "msdia80.dll=n;conhost.exe=d;cmd.exe=d"
                 },
                 WorkingDirectory = KnownFolders.EntryPoint.ToString(),
                 ThrowOnNonZeroExitCode = true,

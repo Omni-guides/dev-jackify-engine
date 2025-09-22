@@ -10,6 +10,17 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ### ModOrganizer.ini Path Handling Fix
 * **Spaces in Directory Names**: Fixed Wine path conversion to properly quote paths containing spaces
 
+### Proton Selection and Window Suppression (Linux)
+* **Config-Aware Proton**: Reads `proton_path` from `~/.config/jackify/config.json` and uses `${proton_path}/proton`
+* **Detection Order**: GE-Proton10-* (compatibilitytools.d) → Proton - Experimental → Proton 10.0 → Proton 9.0
+* **No Wine Fallback**: Proton is now required; if not found, a clear error is logged
+* **Window Suppression**: Suppresses Proton console windows via `DISPLAY=""`, `WAYLAND_DISPLAY=""`, and `WINEDLLOVERRIDES="msdia80.dll=n;conhost.exe=d;cmd.exe=d` for texconv/texdiag/7z and prefix init
+* **Debug Trace**: With `--debug`, logs a single line indicating Proton source (config/GE/Valve version)
+
+### Archive Extraction Encoding Fix
+* **Foreign Character Coverage**: Added degree symbol `°` to the special character list used to trigger the Proton 7z.exe fallback
+* **User Report**: Handles files like `Mirror°.nif` correctly by routing extraction through Proton 7z.exe when needed
+
 ## Version 0.3.14 - 2025-01-XX (DEVELOPMENT)
 ### Nexus API Error Handling Improvements
 * **404 Not Found Handling**: Added specific error messages for missing/removed Nexus mods with actionable user guidance
