@@ -317,9 +317,11 @@ public record OptionDefinition(Type Type, string ShortOption, string LongOption,
     {
         get
         {
+            if (string.IsNullOrEmpty(ShortOption))
+                return new[] { "--" + LongOption };
             return new[] { "-" + ShortOption, "--" + LongOption };
         }
-    } 
+    }
 }
 
 public record VerbDefinition(string Name, string Description, OptionDefinition[] Options)

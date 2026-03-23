@@ -2,6 +2,13 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.5.2 - 2026-03-23
+### Bug Fixes
+* **`--skip-disk-check` flag now recognised**: `OptionDefinition.Aliases` was prepending `-` to an empty short-option string, producing a bare `-` alias that caused `System.CommandLine` to reject the option at registration time. Options with no short alias now emit only the long `--` form. Fixes the "unrecognised argument" error users on 0.5.1 saw when clicking "Continue Anyway" on a disk-full pre-flight error.
+* **NAME_MAX pre-flight no longer false-positives on standard filesystems**: The filename length check now only runs when the install filesystem has a reduced NAME_MAX (< 255). Any modlist published on Wabbajack is NTFS-compatible by definition (255-char component limit), so triggering the check on a standard ext4/btrfs/xfs filesystem could only ever be a false positive. The check continues to protect against encrypted home directories (eCryptFS/fscrypt) which reduce NAME_MAX to ~138 chars.
+* **Disk space pre-flight checks downloads and install drives separately**: Previously only the install drive was checked against the total installed size, ignoring the downloads drive entirely. Now checks the downloads drive against archive sizes and the install drive against directive sizes independently. If both paths share the same filesystem (e.g. both on internal SSD), requires archives + install to fit together since they coexist during installation. Covers the common Steam Deck case of downloads on SD card and install on internal storage.
+* **Archive index lookup errors now actionable**: `InvalidOperationException: Sequence contains no matching element` during `InstallArchives` or BSA verification now emits `validation_failed` (exit 5) with the specific archive and file name, rather than `engine_error` (exit 6) with a bare LINQ exception. Error message tells the user which archive to delete and re-download.
+
 ## Version 0.5.1 - 2026-03-15
 ### Bug Fixes
 * **Disk space pre-flight skippable**: Added `--skip-disk-check` flag to bypass the pre-flight disk space check. Intended for update scenarios where the modlist is already installed and only minor changes are expected, making the full-size check a false positive. The structured `disk_full` error (exit 4) still fires normally when the flag is absent; Jackify GUI can offer a "Continue Anyway" dialog and re-launch with the flag.

@@ -502,10 +502,14 @@ public abstract class AInstaller<T>
                 {
                     return new { VF = _vfs.Index.FileForArchiveHashPath(a.ArchiveHashPath), Directive = a };
                 }
-                catch(Exception)
+                catch(Exception ex)
                 {
-                    _logger.LogError("Failed to look up file {file} by hash {hash}", a.To.FileName.ToString(), a.Hash.ToString());
-                    throw;
+                    var archiveName = ModList.Archives.FirstOrDefault(ar => ar.Hash == a.ArchiveHashPath.Hash)?.Name ?? a.ArchiveHashPath.Hash.ToString();
+                    _logger.LogError("Failed to look up file {file} from archive {archive}", a.To.FileName.ToString(), archiveName);
+                    throw new InvalidOperationException(
+                        $"Failed to locate '{a.To.FileName}' from archive '{archiveName}' in the installed archive index. " +
+                        $"This usually means the archive is corrupted, was downloaded incompletely, or is from a different version of the modlist. " +
+                        $"Delete '{archiveName}' from your downloads folder and retry to re-download it.", ex);
                 }
             })
             .GroupBy(a => a.VF)

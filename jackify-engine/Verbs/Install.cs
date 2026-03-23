@@ -120,39 +120,85 @@ public class Install
 
         // 2. Filesystem NAME_MAX — catches encrypted home dirs (eCryptFS/fscrypt) which reduce
         //    the effective limit to ~138 chars and would cause PathTooLongException mid-install.
+        //    Any modlist published on Wabbajack is NTFS-compatible (255-char component limit),
+        //    so this check is only meaningful when the local filesystem has a reduced NAME_MAX.
         var nameMax = GetEffectiveNameMax(output);
-        var longComponents = modlist.Directives
-            .SelectMany(d => d.To.ToString().Split('/', '\\'))
-            .Where(c => c.Length > nameMax)
-            .Distinct()
-            .OrderByDescending(c => c.Length)
-            .Take(5)
-            .ToList();
-        if (longComponents.Any())
+        if (nameMax < 255)
         {
-            var examples = string.Join("; ", longComponents.Select(c => $"'{c}' ({c.Length} chars)"));
-            _logger.LogError("Install filesystem NAME_MAX of {NameMax} chars is too small for this modlist", nameMax);
-            StructuredError.WriteError(StructuredError.ErrorType.ValidationFailed,
-                $"Your install filesystem limits filenames to {nameMax} characters, but this modlist requires longer names: {examples}. " +
-                $"This typically occurs with encrypted home directories (eCryptFS/fscrypt). " +
-                $"Install to a non-encrypted location such as /opt/{modlist.Name.Replace(" ", "")}.",
-                new Dictionary<string, object?> { ["name_max"] = nameMax, ["offending_names"] = longComponents });
-            return StructuredError.ExitCodeFor(StructuredError.ErrorType.ValidationFailed);
+            var longComponents = modlist.Directives
+                .SelectMany(d => d.To.Parts)
+                .Where(c => c.Length > nameMax)
+                .Distinct()
+                .OrderByDescending(c => c.Length)
+                .Take(5)
+                .ToList();
+            if (longComponents.Any())
+            {
+                var examples = string.Join("; ", longComponents.Select(c => $"'{c}' ({c.Length} chars)"));
+                _logger.LogError("Install filesystem NAME_MAX of {NameMax} chars is too small for this modlist", nameMax);
+                StructuredError.WriteError(StructuredError.ErrorType.ValidationFailed,
+                    $"Your install filesystem has a reduced filename length limit of {nameMax} characters (standard is 255). " +
+                    $"This can occur on encrypted filesystems such as eCryptFS or fscrypt. " +
+                    $"These filenames from the modlist exceed that limit: {examples}. " +
+                    $"Please choose an install location on a filesystem that supports standard filename lengths.",
+                    new Dictionary<string, object?> { ["name_max"] = nameMax, ["offending_names"] = longComponents });
+                return StructuredError.ExitCodeFor(StructuredError.ErrorType.ValidationFailed);
+            }
         }
 
-        // 3. Disk space — rough check: installed file sizes vs free space on target drive.
-        //    Skippable via --skip-disk-check for update scenarios where most files already exist.
-        var installSizeBytes = modlist.Directives.Sum(d => d.Size);
-        var freeBytes = GetAvailableBytesAt(output);
-        if (!skipDiskCheck && freeBytes > 0 && freeBytes < installSizeBytes)
+        // 3. Disk space — check downloads and install drives separately.
+        //    If both paths are on the same filesystem, archives and installed files must fit
+        //    together (they coexist during installation). Skippable via --skip-disk-check for
+        //    update scenarios where most files already exist.
+        if (!skipDiskCheck)
         {
-            _logger.LogError("Insufficient disk space: {Need} needed, {Free} available",
-                installSizeBytes.ToFileSizeString(), freeBytes.ToFileSizeString());
-            StructuredError.WriteError(StructuredError.ErrorType.DiskFull,
-                $"Insufficient disk space at {output}. Installation requires {installSizeBytes.ToFileSizeString()} " +
-                $"but only {freeBytes.ToFileSizeString()} is available.",
-                new Dictionary<string, object?> { ["required_bytes"] = installSizeBytes, ["available_bytes"] = freeBytes });
-            return StructuredError.ExitCodeFor(StructuredError.ErrorType.DiskFull);
+            var archiveSizeBytes = modlist.Archives.Sum(a => a.Size);
+            var installSizeBytes = modlist.Directives.Sum(d => d.Size);
+
+            var downloadsDrive = GetDriveInfoFor(downloads);
+            var installDrive   = GetDriveInfoFor(output);
+            var sameDrive      = downloadsDrive != null && installDrive != null &&
+                                 string.Equals(downloadsDrive.Name, installDrive.Name, StringComparison.Ordinal);
+
+            var diskErrors = new List<string>();
+
+            if (sameDrive)
+            {
+                var free     = downloadsDrive!.AvailableFreeSpace;
+                var required = archiveSizeBytes + installSizeBytes;
+                if (free > 0 && free < required)
+                    diskErrors.Add(
+                        $"downloads and install share the same drive ({downloadsDrive.Name.TrimEnd('/')}): " +
+                        $"requires {required.ToFileSizeString()} ({archiveSizeBytes.ToFileSizeString()} archives + " +
+                        $"{installSizeBytes.ToFileSizeString()} install) but only {free.ToFileSizeString()} is available");
+            }
+            else
+            {
+                var freeDownloads = downloadsDrive?.AvailableFreeSpace ?? 0;
+                if (freeDownloads > 0 && freeDownloads < archiveSizeBytes)
+                    diskErrors.Add(
+                        $"downloads drive ({downloads}): requires {archiveSizeBytes.ToFileSizeString()} " +
+                        $"for archives but only {freeDownloads.ToFileSizeString()} is available");
+
+                var freeInstall = installDrive?.AvailableFreeSpace ?? 0;
+                if (freeInstall > 0 && freeInstall < installSizeBytes)
+                    diskErrors.Add(
+                        $"install drive ({output}): requires {installSizeBytes.ToFileSizeString()} " +
+                        $"but only {freeInstall.ToFileSizeString()} is available");
+            }
+
+            if (diskErrors.Any())
+            {
+                var msg = "Insufficient disk space — " + string.Join("; ", diskErrors);
+                _logger.LogError("{Message}", msg);
+                StructuredError.WriteError(StructuredError.ErrorType.DiskFull, msg,
+                    new Dictionary<string, object?> {
+                        ["archive_bytes"]  = archiveSizeBytes,
+                        ["install_bytes"]  = installSizeBytes,
+                        ["same_drive"]     = sameDrive
+                    });
+                return StructuredError.ExitCodeFor(StructuredError.ErrorType.DiskFull);
+            }
         }
 
         var installer = StandardInstaller.Create(_serviceProvider, new InstallerConfiguration
@@ -232,23 +278,22 @@ public class Install
     }
 
     /// <summary>
-    /// Returns the available free bytes on the filesystem at the given path,
-    /// or 0 if it cannot be determined.
+    /// Returns the DriveInfo for the filesystem that contains the given path,
+    /// or null if it cannot be determined.
     /// </summary>
-    private static long GetAvailableBytesAt(AbsolutePath path)
+    private static DriveInfo? GetDriveInfoFor(AbsolutePath path)
     {
         try
         {
             var pathStr = path.ToString();
-            var drive = DriveInfo.GetDrives()
+            return DriveInfo.GetDrives()
                 .Where(d => pathStr.StartsWith(d.Name, StringComparison.Ordinal))
                 .OrderByDescending(d => d.Name.Length)
                 .FirstOrDefault();
-            return drive?.AvailableFreeSpace ?? 0;
         }
         catch
         {
-            return 0;
+            return null;
         }
     }
 

@@ -62,6 +62,14 @@ public static class StructuredError
                     $"effective limit below the standard 255 characters. Install to a non-encrypted location " +
                     $"such as /opt/LoreRim. Detail: {msg}"),
 
+        InvalidOperationException when msg.Contains("Failed to locate") && msg.Contains("installed archive index")
+                => (ErrorType.ValidationFailed,
+                    msg),
+
+        InvalidOperationException when msg.Contains("BSA verification failed")
+                => (ErrorType.ValidationFailed,
+                    msg),
+
         System.IO.IOException when msg.Contains("ENOSPC") || msg.Contains("No space left")
                 => (ErrorType.DiskFull,
                     "Disk is full. Free up space and try again."),

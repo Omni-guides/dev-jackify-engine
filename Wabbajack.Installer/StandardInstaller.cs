@@ -618,7 +618,11 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                 await using var stream = await sf.GetStream();
                 var hash = await stream.Hash(token);
 
-                var astate = bsa.FileStates.First(f => f.Path == state.Path);
+                var astate = bsa.FileStates.FirstOrDefault(f => f.Path == state.Path);
+                if (astate == null)
+                    throw new InvalidOperationException(
+                        $"BSA verification failed: '{state.Path}' exists in the built '{bsa.To.FileName}' but has no matching FileState in the modlist directive. " +
+                        $"This may indicate a corrupt modlist or an incompatible archive version.");
                 var srcDirective = indexedByDestination[Consts.BSACreationDir.Combine(bsa.TempID, astate.Path)];
                 //DX10Files are lossy
                 if (astate is not BA2DX10File && srcDirective.IsDeterministic)
