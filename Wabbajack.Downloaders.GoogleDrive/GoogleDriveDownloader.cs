@@ -137,7 +137,12 @@ public class GoogleDriveDownloader : ADownloader<DTOs.DownloadStates.GoogleDrive
                     .FirstOrDefault(d => d.Name == "form" && d.Id.Contains("download", StringComparison.OrdinalIgnoreCase));
 
                 if (form == null)
-                    return new HttpRequestMessage(HttpMethod.Get, initialUrl);
+                {
+                    var directMsg = new HttpRequestMessage(HttpMethod.Get,
+                        $"https://drive.usercontent.google.com/download?id={state.Id}&export=download&confirm=t");
+                    directMsg.AddChromeAgent();
+                    return directMsg;
+                }
 
                 url = form.GetAttributeValue("action", "https://drive.usercontent.google.com/download");
                 foreach(var element in form.Descendants())

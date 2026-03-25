@@ -74,6 +74,12 @@ public static class StructuredError
                 => (ErrorType.DiskFull,
                     "Disk is full. Free up space and try again."),
 
+            System.IO.IOException when msg.Contains("File name too long") || msg.Contains("ENAMETOOLONG")
+                => (ErrorType.ValidationFailed,
+                    $"A filename in the modlist exceeds your filesystem's limit. " +
+                    $"This typically occurs with encrypted home directories (eCryptFS/fscrypt), which reduce the " +
+                    $"effective limit below the standard 255 characters. Install to a non-encrypted location. Detail: {msg}"),
+
             System.IO.IOException when msg.Contains("Access denied") || msg.Contains("Permission denied") ||
                                        msg.Contains("EACCES") || msg.Contains("EPERM")
                 => (ErrorType.PermissionDenied,
