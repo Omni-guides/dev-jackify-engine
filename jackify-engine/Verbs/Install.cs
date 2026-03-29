@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Collections.Concurrent;
 using System.CommandLine;
 using System.CommandLine.Invocation;
@@ -118,35 +117,7 @@ public class Install
             return StructuredError.ExitCodeFor(StructuredError.ErrorType.FileNotFound);
         }
 
-        // 2. Filesystem NAME_MAX — catches encrypted home dirs (eCryptFS/fscrypt) which reduce
-        //    the effective limit to ~138 chars and would cause PathTooLongException mid-install.
-        //    Any modlist published on Wabbajack is NTFS-compatible (255-char component limit),
-        //    so this check is only meaningful when the local filesystem has a reduced NAME_MAX.
-        var nameMax = GetEffectiveNameMax(output);
-        if (nameMax < 255)
-        {
-            var longComponents = modlist.Directives
-                .SelectMany(d => d.To.Parts)
-                .Where(c => c.Length > nameMax)
-                .Distinct()
-                .OrderByDescending(c => c.Length)
-                .Take(5)
-                .ToList();
-            if (longComponents.Any())
-            {
-                var examples = string.Join("; ", longComponents.Select(c => $"'{c}' ({c.Length} chars)"));
-                _logger.LogError("Install filesystem NAME_MAX of {NameMax} chars is too small for this modlist", nameMax);
-                StructuredError.WriteError(StructuredError.ErrorType.ValidationFailed,
-                    $"Your install filesystem has a reduced filename length limit of {nameMax} characters (standard is 255). " +
-                    $"This can occur on encrypted filesystems such as eCryptFS or fscrypt. " +
-                    $"These filenames from the modlist exceed that limit: {examples}. " +
-                    $"Please choose an install location on a filesystem that supports standard filename lengths.",
-                    new Dictionary<string, object?> { ["name_max"] = nameMax, ["offending_names"] = longComponents });
-                return StructuredError.ExitCodeFor(StructuredError.ErrorType.ValidationFailed);
-            }
-        }
-
-        // 3. Disk space — check downloads and install drives separately.
+        // 2. Disk space — check downloads and install drives separately.
         //    If both paths are on the same filesystem, archives and installed files must fit
         //    together (they coexist during installation). Skippable via --skip-disk-check for
         //    update scenarios where most files already exist.
@@ -249,33 +220,6 @@ public class Install
         };
     }
 
-    [DllImport("libc", SetLastError = true)]
-    private static extern long pathconf(string path, int name);
-    private const int _PC_NAME_MAX = 3;
-
-    /// <summary>
-    /// Returns the effective NAME_MAX for the filesystem at the given path.
-    /// Walks up to the first existing ancestor directory if the path doesn't exist yet.
-    /// Falls back to 255 if pathconf is unavailable or the path can't be resolved.
-    /// </summary>
-    private static int GetEffectiveNameMax(AbsolutePath path)
-    {
-        var current = path;
-        while (current.Depth > 1 && !current.DirectoryExists())
-            current = current.Parent;
-
-        if (!current.DirectoryExists()) return 255;
-
-        try
-        {
-            var result = pathconf(current.ToString(), _PC_NAME_MAX);
-            return result > 0 ? (int)result : 255;
-        }
-        catch
-        {
-            return 255;
-        }
-    }
 
     /// <summary>
     /// Returns the DriveInfo for the filesystem that contains the given path,

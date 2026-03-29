@@ -2,6 +2,11 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.5.3 - 2026-03-25
+### Bug Fixes
+* **NAME_MAX pre-flight check removed**: The filename length pre-flight check introduced in 0.5.0 has been removed. It was causing false positives for users on non-encrypted filesystems, blocking installs that would have succeeded. eCryptFS/fscrypt users will still receive an actionable error if a filename is genuinely too long, caught at the point of failure during install.
+* **Google Drive downloads failing**: The Wabbajack CDN proxy was returning a cached ~16 byte broken response for some Google Drive files. The download dispatcher now detects a proxy hash mismatch and retries direct, where the downloader constructs a `drive.usercontent.google.com` URL with `confirm=t` to bypass the virus-scan warning page.
+
 ## Version 0.5.2 - 2026-03-23
 ### Bug Fixes
 * **`--skip-disk-check` flag now recognised**: `OptionDefinition.Aliases` was prepending `-` to an empty short-option string, producing a bare `-` alias that caused `System.CommandLine` to reject the option at registration time. Options with no short alias now emit only the long `--` form. Fixes the "unrecognised argument" error users on 0.5.1 saw when clicking "Continue Anyway" on a disk-full pre-flight error.

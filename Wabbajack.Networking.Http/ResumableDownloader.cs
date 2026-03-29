@@ -62,42 +62,7 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
                 await Task.Delay(50, token); // 50ms delay to ensure file is fully synced
             }
 
-            // Verify file size matches expected before hashing
-            if (job.Size.HasValue && downloadedFilePath.FileExists())
-            {
-                var actualSize = downloadedFilePath.Size();
-                // DIAGNOSTIC: Always log size comparison (DEBUG level - only visible with --debug flag)
-                _logger.LogDebug("[DOWNLOAD_DIAG] Size verification for '{name}': expected={Expected}, actual={Actual}, difference={Difference}", 
-                    downloadedFilePath.FileName.ToString(), job.Size.Value, actualSize, actualSize - job.Size.Value);
-                
-                if (actualSize != job.Size.Value)
-                {
-                    _logger.LogError("File size mismatch before hashing: expected {Expected}, got {Actual}", 
-                        job.Size.Value, actualSize);
-                    throw new IOException($"Downloaded file size mismatch: expected {job.Size.Value}, got {actualSize}");
-                }
-            }
-
             return await HashFile(downloadedFilePath, token);
-        }
-        catch (IOException ex) when (ex.Message.Contains("size mismatch", StringComparison.OrdinalIgnoreCase))
-        {
-            // Size mismatch detected - file is corrupted, reset and retry from beginning
-            var fileSizeOnError = filePath.FileExists() ? filePath.Size() : 0;
-            _logger.LogDebug("[DOWNLOAD_DIAG] Size mismatch detected for '{name}': fileSize={FileSize}, expected={Expected}. Resetting and retrying from beginning.", 
-                filePath.FileName.ToString(), fileSizeOnError, job.Size.Value);
-            
-            _logger.LogWarning("File size mismatch for '{name}'. Resetting and retrying from beginning...", filePath.FileName.ToString());
-
-            if (retry == 0)
-            {
-                _logger.LogError(ex, "Failed to download '{name}' after all retries. Partial file will be resumed on next attempt.", filePath.FileName.ToString());
-                throw;
-            }
-
-            // Clone the HttpRequestMessage for retry to avoid "already sent" exception
-            var clonedMsg = CloneHttpRequestMessage(msg);
-            return await DownloadAndHash(clonedMsg, filePath, job, token, retry - 1, reset: true);
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable)
         {
