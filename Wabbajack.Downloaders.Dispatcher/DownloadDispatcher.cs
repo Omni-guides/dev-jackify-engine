@@ -166,7 +166,9 @@ public class DownloadDispatcher
             if (!dest.Parent.DirectoryExists())
                 dest.Parent.CreateDirectory();
 
+            var originalArchive = a;
             var downloader = Downloader(a);
+            var proxyWasUsed = false;
             if ((useProxy ?? _useProxyCache) && downloader is IProxyable p)
             {
                 var uri = p.UnParse(a.State);
@@ -184,11 +186,23 @@ public class DownloadDispatcher
                         }
                     };
                     downloader = Downloader(a);
+                    proxyWasUsed = true;
                     _logger.LogInformation("Downloading Proxy ({Hash}) {Uri}", (await uri.ToString().Hash()).ToHex(), uri);
                 }
             }
 
             var hash = await downloader.Download(a, dest, job, token);
+
+            // If the proxy returned a broken response (wrong hash), retry using the source-specific
+            // downloader directly. The CDN proxy may have cached a bad fetch (e.g. Google Drive
+            // virus-scan warning page ~16 bytes) that the original downloader knows how to handle.
+            if (proxyWasUsed && hash != default && originalArchive.Hash != default && hash != originalArchive.Hash)
+            {
+                _logger.LogWarning("Proxy download of {archive} returned wrong hash, retrying direct (no proxy)", originalArchive.Name);
+                if (dest.FileExists()) dest.Delete();
+                hash = await Download(originalArchive, dest, job, token, false);
+            }
+
             return hash;
         }
         catch (TaskCanceledException)

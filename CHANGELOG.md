@@ -5,7 +5,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ## Version 0.5.3 - 2026-03-25
 ### Bug Fixes
 * **NAME_MAX pre-flight check removed**: The filename length pre-flight check introduced in 0.5.0 has been removed. It was causing false positives for users on non-encrypted filesystems, blocking installs that would have succeeded. eCryptFS/fscrypt users will still receive an actionable error if a filename is genuinely too long, caught at the point of failure during install.
-* **Google Drive downloads failing with size mismatch**: When Google Drive's warning page HTML did not contain the expected form (file too large to virus-scan), the downloader fell back to the original `drive.google.com/uc` URL which returns ~16 bytes when hit programmatically. The fallback now constructs a direct `drive.usercontent.google.com` URL with `confirm=t`, matching the URL the browser lands on after clicking through the warning.
+* **Google Drive downloads failing**: The Wabbajack CDN proxy was returning a cached ~16 byte broken response for some Google Drive files. The download dispatcher now detects a proxy hash mismatch and retries direct, where the downloader constructs a `drive.usercontent.google.com` URL with `confirm=t` to bypass the virus-scan warning page.
 
 ## Version 0.5.2 - 2026-03-23
 ### Bug Fixes
