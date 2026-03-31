@@ -2,6 +2,10 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.5.4 - 2026-03-31
+### Bug Fixes
+* **Disk space pre-flight check removed**: The disk space pre-flight check introduced in 0.5.0 has been removed. It was producing false positives for users who have sufficient space, blocking installs that would have succeeded. Real out-of-disk-space conditions are still caught at the point of failure via `ENOSPC` and reported as a `disk_full` structured error (exit 4).
+
 ## Version 0.5.3 - 2026-03-25
 ### Bug Fixes
 * **NAME_MAX pre-flight check removed**: The filename length pre-flight check introduced in 0.5.0 has been removed. It was causing false positives for users on non-encrypted filesystems, blocking installs that would have succeeded. eCryptFS/fscrypt users will still receive an actionable error if a filename is genuinely too long, caught at the point of failure during install.
