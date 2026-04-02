@@ -5,6 +5,7 @@ Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlis
 ## Version 0.5.4 - 2026-03-31
 ### Bug Fixes
 * **Disk space pre-flight check removed**: The disk space pre-flight check introduced in 0.5.0 has been removed. It was producing false positives for users who have sufficient space, blocking installs that would have succeeded. Real out-of-disk-space conditions are still caught at the point of failure via `ENOSPC` and reported as a `disk_full` structured error (exit 4).
+* **OAuth refresh token rotation writeback**: Nexus uses refresh token rotation — when the engine refreshes an OAuth token mid-install, the old refresh token is immediately invalidated. Previously the new token existed only in memory and was lost on exit, silently invalidating the user's Nexus login after any install longer than ~1 hour. The engine now writes the updated token state (same JSON format as `NEXUS_OAUTH_INFO`) to the path specified by `JACKIFY_TOKEN_WRITEBACK` after each successful refresh, allowing Jackify to persist the new token on exit.
 
 ## Version 0.5.3 - 2026-03-25
 ### Bug Fixes
