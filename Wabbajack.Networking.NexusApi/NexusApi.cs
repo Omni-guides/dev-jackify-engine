@@ -558,7 +558,32 @@ public class NexusApi
         // Instead, keep the refreshed state in memory
         // Write token status to file so GUI can read it during installs
         await WriteTokenStatusFile(state);
+        // Write updated token state to writeback file so Jackify can persist the new refresh token
+        await WriteTokenWriteback(state);
         return state;
+    }
+
+    /// <summary>
+    /// If JACKIFY_TOKEN_WRITEBACK is set, writes the current NexusOAuthState as JSON to that path.
+    /// Jackify sets this env var before launching the engine and reads it after the engine exits,
+    /// allowing the new refresh token from rotation to be persisted back to Jackify's token store.
+    /// </summary>
+    private async Task WriteTokenWriteback(NexusOAuthState state)
+    {
+        var writebackPath = Environment.GetEnvironmentVariable("JACKIFY_TOKEN_WRITEBACK");
+        if (string.IsNullOrWhiteSpace(writebackPath))
+            return;
+
+        try
+        {
+            var json = JsonSerializer.Serialize(state, _jsonOptions);
+            await File.WriteAllTextAsync(writebackPath, json);
+            _logger.LogDebug("OAuth token writeback written to {Path}", writebackPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to write OAuth token writeback to {Path}", writebackPath);
+        }
     }
 
     public async Task<(UpdateEntry[], ResponseMetadata headers)> GetUpdates(Game game, CancellationToken token)

@@ -2,6 +2,12 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## Version 0.5.4 - 2026-03-31
+### Bug Fixes
+* **Disk space pre-flight check removed**: The disk space pre-flight check introduced in 0.5.0 has been removed. It was producing false positives for users who have sufficient space, blocking installs that would have succeeded. Real out-of-disk-space conditions are still caught at the point of failure via `ENOSPC` and reported as a `disk_full` structured error (exit 4).
+* **OAuth refresh token rotation writeback**: Nexus uses refresh token rotation — when the engine refreshes an OAuth token mid-install, the old refresh token is immediately invalidated. Previously the new token existed only in memory and was lost on exit, silently invalidating the user's Nexus login after any install longer than ~1 hour. The engine now writes the updated token state (same JSON format as `NEXUS_OAUTH_INFO`) to the path specified by `JACKIFY_TOKEN_WRITEBACK` after each successful refresh, allowing Jackify to persist the new token on exit.
+* **CDN stall no longer hangs large downloads indefinitely**: If a Nexus CDN connection stays open but stops delivering bytes (TCP established, server silent), `ReadAsync` had no timeout and would block forever — the outer cancellation token only fires on user cancel, so the retry logic never triggered. Each read now has a 60-second idle timeout. If no bytes arrive within the window, an `IOException` is raised and the existing retry/resume infrastructure reconnects and resumes from the partial file via the Range header. User cancellation is still propagated normally and does not trigger a retry.
+
 ## Version 0.5.3 - 2026-03-25
 ### Bug Fixes
 * **NAME_MAX pre-flight check removed**: The filename length pre-flight check introduced in 0.5.0 has been removed. It was causing false positives for users on non-encrypted filesystems, blocking installs that would have succeeded. eCryptFS/fscrypt users will still receive an actionable error if a filename is genuinely too long, caught at the point of failure during install.

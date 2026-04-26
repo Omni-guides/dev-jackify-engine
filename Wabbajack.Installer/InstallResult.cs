@@ -8,6 +8,5 @@
         GameMissing,
         GameInvalid,
         DownloadFailed,
-        NotEnoughSpace,
     }
 }

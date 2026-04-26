@@ -52,11 +52,10 @@ public class Install
         new OptionDefinition(typeof(AbsolutePath), "w", "wabbajack", "Wabbajack file"),
         new OptionDefinition(typeof(string), "m", "machineUrl", "Machine url to download"),
         new OptionDefinition(typeof(AbsolutePath), "o", "output", "Output path"),
-        new OptionDefinition(typeof(AbsolutePath), "d", "downloads", "Downloads path"),
-        new OptionDefinition(typeof(bool), "", "skip-disk-check", "Skip the pre-flight disk space check")
+        new OptionDefinition(typeof(AbsolutePath), "d", "downloads", "Downloads path")
     });
 
-    internal async Task<int> Run(AbsolutePath wabbajack, AbsolutePath output, AbsolutePath downloads, string machineUrl, bool skipDiskCheck, CancellationToken token)
+    internal async Task<int> Run(AbsolutePath wabbajack, AbsolutePath output, AbsolutePath downloads, string machineUrl, CancellationToken token)
     {
         if (!string.IsNullOrEmpty(machineUrl))
         {
@@ -117,61 +116,6 @@ public class Install
             return StructuredError.ExitCodeFor(StructuredError.ErrorType.FileNotFound);
         }
 
-        // 2. Disk space — check downloads and install drives separately.
-        //    If both paths are on the same filesystem, archives and installed files must fit
-        //    together (they coexist during installation). Skippable via --skip-disk-check for
-        //    update scenarios where most files already exist.
-        if (!skipDiskCheck)
-        {
-            var archiveSizeBytes = modlist.Archives.Sum(a => a.Size);
-            var installSizeBytes = modlist.Directives.Sum(d => d.Size);
-
-            var downloadsDrive = GetDriveInfoFor(downloads);
-            var installDrive   = GetDriveInfoFor(output);
-            var sameDrive      = downloadsDrive != null && installDrive != null &&
-                                 string.Equals(downloadsDrive.Name, installDrive.Name, StringComparison.Ordinal);
-
-            var diskErrors = new List<string>();
-
-            if (sameDrive)
-            {
-                var free     = downloadsDrive!.AvailableFreeSpace;
-                var required = archiveSizeBytes + installSizeBytes;
-                if (free > 0 && free < required)
-                    diskErrors.Add(
-                        $"downloads and install share the same drive ({downloadsDrive.Name.TrimEnd('/')}): " +
-                        $"requires {required.ToFileSizeString()} ({archiveSizeBytes.ToFileSizeString()} archives + " +
-                        $"{installSizeBytes.ToFileSizeString()} install) but only {free.ToFileSizeString()} is available");
-            }
-            else
-            {
-                var freeDownloads = downloadsDrive?.AvailableFreeSpace ?? 0;
-                if (freeDownloads > 0 && freeDownloads < archiveSizeBytes)
-                    diskErrors.Add(
-                        $"downloads drive ({downloads}): requires {archiveSizeBytes.ToFileSizeString()} " +
-                        $"for archives but only {freeDownloads.ToFileSizeString()} is available");
-
-                var freeInstall = installDrive?.AvailableFreeSpace ?? 0;
-                if (freeInstall > 0 && freeInstall < installSizeBytes)
-                    diskErrors.Add(
-                        $"install drive ({output}): requires {installSizeBytes.ToFileSizeString()} " +
-                        $"but only {freeInstall.ToFileSizeString()} is available");
-            }
-
-            if (diskErrors.Any())
-            {
-                var msg = "Insufficient disk space — " + string.Join("; ", diskErrors);
-                _logger.LogError("{Message}", msg);
-                StructuredError.WriteError(StructuredError.ErrorType.DiskFull, msg,
-                    new Dictionary<string, object?> {
-                        ["archive_bytes"]  = archiveSizeBytes,
-                        ["install_bytes"]  = installSizeBytes,
-                        ["same_drive"]     = sameDrive
-                    });
-                return StructuredError.ExitCodeFor(StructuredError.ErrorType.DiskFull);
-            }
-        }
-
         var installer = StandardInstaller.Create(_serviceProvider, new InstallerConfiguration
         {
             Downloads = downloads,
@@ -209,8 +153,6 @@ public class Install
             InstallResult.Cancelled   => 1,
             InstallResult.DownloadFailed => EmitAndReturn(StructuredError.ErrorType.NetworkError,
                 "Installation failed: one or more downloads could not be completed."),
-            InstallResult.NotEnoughSpace => EmitAndReturn(StructuredError.ErrorType.DiskFull,
-                "Installation failed: insufficient disk space on the target drive."),
             InstallResult.GameMissing => EmitAndReturn(StructuredError.ErrorType.FileNotFound,
                 "Installation failed: the target game was not found on this system."),
             InstallResult.GameInvalid => EmitAndReturn(StructuredError.ErrorType.ValidationFailed,
@@ -222,25 +164,6 @@ public class Install
 
 
     /// <summary>
-    /// Returns the DriveInfo for the filesystem that contains the given path,
-    /// or null if it cannot be determined.
-    /// </summary>
-    private static DriveInfo? GetDriveInfoFor(AbsolutePath path)
-    {
-        try
-        {
-            var pathStr = path.ToString();
-            return DriveInfo.GetDrives()
-                .Where(d => pathStr.StartsWith(d.Name, StringComparison.Ordinal))
-                .OrderByDescending(d => d.Name.Length)
-                .FirstOrDefault();
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     private async Task<bool> DownloadMachineUrl(string machineUrl, AbsolutePath wabbajack, CancellationToken token)
     {
         _logger.LogInformation("Downloading {MachineUrl}", machineUrl);
