@@ -185,8 +185,25 @@ public class ResumableDownloader(ILogger<ResumableDownloader> _logger, IHttpClie
         var buffer = new byte[2 * 1024 * 1024]; // 2MB buffer for better throughput
         int bytesRead;
         long totalBytesRead = 0;
-        while ((bytesRead = await responseStream.ReadAsync(buffer, token)) > 0)
+        while (true)
         {
+            using var readCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+            readCts.CancelAfter(TimeSpan.FromSeconds(60));
+
+            try
+            {
+                bytesRead = await responseStream.ReadAsync(buffer, readCts.Token);
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                // Stalled connection: no bytes arrived within 60s but user did not cancel.
+                // Throw IOException so the existing retry/resume handler in DownloadAndHash
+                // catches it, decrements retry, and resumes via Range header.
+                throw new IOException($"CDN read timeout: no data received for 60s on '{filePath.FileName}' (stalled connection)");
+            }
+
+            if (bytesRead == 0) break;
+
             await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), token);
             _metrics.Record(bytesRead);
             bytesProcessed += bytesRead;
