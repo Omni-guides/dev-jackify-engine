@@ -2,6 +2,12 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## v0.5.5 - Heroic game detection, GitHub releases, --game override
+### New Features
+* **Heroic Launcher game detection**: jackify-engine now detects games installed via Heroic Games Launcher on Linux, covering GOG games (`~/.config/heroic/gog_store/installed.json`) and Epic Games (`store_cache/legendary_library.json`). Both native and Flatpak Heroic installs are supported. This allows modlists targeting GOG/Epic titles (Skyrim SE AE, Fallout New Vegas, Oblivion, Morrowind, Witcher 3, Cyberpunk 2077, etc.) to locate the game automatically without any manual configuration.
+* **GitHub Releases**: jackify-engine now publishes versioned release archives to GitHub Releases on each tagged version. Archives follow the naming pattern `jackify-engine-X.Y.Z-linux-x64.tar.gz` and are available via the GitHub releases API (`/releases/latest`). This enables the Jackify Tools Hub to query, download, and update the engine independently of the Jackify AppImage.
+* **`-g, --game` override flag** *(hidden)*: A new hidden flag allows specifying the game installation directory directly, bypassing auto-detection. Intended as an integration escape hatch for edge cases where detection fails. Behaviour and flag name match CLF3's `--game` flag for consistency.
+
 ## Version 0.5.4 - 2026-03-31
 ### Bug Fixes
 * **Disk space pre-flight check removed**: The disk space pre-flight check introduced in 0.5.0 has been removed. It was producing false positives for users who have sufficient space, blocking installs that would have succeeded. Real out-of-disk-space conditions are still caught at the point of failure via `ENOSPC` and reported as a `disk_full` structured error (exit 4).

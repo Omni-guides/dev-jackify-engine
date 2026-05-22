@@ -125,7 +125,9 @@ public class CommandLineBuilder
         var command = new Command(definition.Name, definition.Description);
         foreach (var option in definition.Options)
         {
-            command.Add(_optionCtors[option.Type](option));
+            var opt = _optionCtors[option.Type](option);
+            opt.IsHidden = option.IsHidden;
+            command.Add(opt);
         }
         command.Handler = new HandlerDelegate(_provider, verbType, verbHandler);
         return command;
@@ -311,7 +313,7 @@ public class CommandLineBuilder
     }
 }
 
-public record OptionDefinition(Type Type, string ShortOption, string LongOption, string Description)
+public record OptionDefinition(Type Type, string ShortOption, string LongOption, string Description, bool IsHidden = false)
 {
     public string[] Aliases
     {

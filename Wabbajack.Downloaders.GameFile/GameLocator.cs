@@ -78,6 +78,22 @@ public class GameLocator : IGameLocator
             _logger.LogError(e, "While finding games installed with GOG Galaxy");
         }
 
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                foreach (var (id, path) in HeroicLocator.FindGogGames(_logger))
+                    _gogGames[GOGGameId.From(id)] = path;
+
+                foreach (var (id, path) in HeroicLocator.FindEpicGames(_logger))
+                    _egsGames[EGSGameId.From(id)] = path;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "While finding games installed with Heroic");
+            }
+        }
+
         try
         {
             FindStoreGames(_egs, _egsGames, game => (AbsolutePath)game.InstallLocation.GetFullPath());

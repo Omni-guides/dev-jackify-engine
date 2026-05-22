@@ -52,10 +52,11 @@ public class Install
         new OptionDefinition(typeof(AbsolutePath), "w", "wabbajack", "Wabbajack file"),
         new OptionDefinition(typeof(string), "m", "machineUrl", "Machine url to download"),
         new OptionDefinition(typeof(AbsolutePath), "o", "output", "Output path"),
-        new OptionDefinition(typeof(AbsolutePath), "d", "downloads", "Downloads path")
+        new OptionDefinition(typeof(AbsolutePath), "d", "downloads", "Downloads path"),
+        new OptionDefinition(typeof(AbsolutePath), "g", "game", "Game installation directory (overrides auto-detection)", IsHidden: true),
     });
 
-    internal async Task<int> Run(AbsolutePath wabbajack, AbsolutePath output, AbsolutePath downloads, string machineUrl, CancellationToken token)
+    internal async Task<int> Run(AbsolutePath wabbajack, AbsolutePath output, AbsolutePath downloads, string machineUrl, AbsolutePath game, CancellationToken token)
     {
         if (!string.IsNullOrEmpty(machineUrl))
         {
@@ -106,14 +107,32 @@ public class Install
 
         // --- Pre-flight validation ---
 
-        // 1. Game installed
-        if (!_gameLocator.IsInstalled(modlist.GameType))
+        AbsolutePath gameFolder;
+        if (game != AbsolutePath.Empty)
         {
-            _logger.LogError("Required game '{Game}' is not installed on this system", modlist.GameType);
-            StructuredError.WriteError(StructuredError.ErrorType.FileNotFound,
-                $"The game '{modlist.GameType}' required by this modlist is not installed. Install the game before running the modlist.",
-                new Dictionary<string, object?> { ["game"] = modlist.GameType.ToString() });
-            return StructuredError.ExitCodeFor(StructuredError.ErrorType.FileNotFound);
+            if (!game.DirectoryExists())
+            {
+                _logger.LogError("Specified game path does not exist: {Path}", game);
+                StructuredError.WriteError(StructuredError.ErrorType.FileNotFound,
+                    $"The specified game path does not exist: {game}",
+                    new Dictionary<string, object?> { ["path"] = game.ToString() });
+                return StructuredError.ExitCodeFor(StructuredError.ErrorType.FileNotFound);
+            }
+            gameFolder = game;
+            _logger.LogInformation("Using provided game path: {Path}", game);
+        }
+        else
+        {
+            // 1. Game installed
+            if (!_gameLocator.IsInstalled(modlist.GameType))
+            {
+                _logger.LogError("Required game '{Game}' is not installed on this system", modlist.GameType);
+                StructuredError.WriteError(StructuredError.ErrorType.FileNotFound,
+                    $"The game '{modlist.GameType}' required by this modlist is not installed. Install the game before running the modlist.",
+                    new Dictionary<string, object?> { ["game"] = modlist.GameType.ToString() });
+                return StructuredError.ExitCodeFor(StructuredError.ErrorType.FileNotFound);
+            }
+            gameFolder = _gameLocator.GameLocation(modlist.GameType);
         }
 
         var installer = StandardInstaller.Create(_serviceProvider, new InstallerConfiguration
@@ -123,7 +142,7 @@ public class Install
             ModList = modlist,
             Game = modlist.GameType,
             ModlistArchive = wabbajack,
-            GameFolder = _gameLocator.GameLocation(modlist.GameType)
+            GameFolder = gameFolder
         });
 
         InstallResult result;
