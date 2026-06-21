@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -71,8 +72,17 @@ public class IndexRoot
     public VirtualFile FileForArchiveHashPath(HashRelativePath argArchiveHashPath)
     {
         var cur = ByHash[argArchiveHashPath.Hash].First(f => f.Parent == null);
-        return argArchiveHashPath.Parts.Aggregate(cur,
-            (current, itm) => ByName[itm].First(f => f.Parent == current));
+        return argArchiveHashPath.Parts.Aggregate(cur, (current, itm) =>
+        {
+            var matches = ByName[itm].Where(f => f.Parent == current).ToList();
+            if (matches.Count <= 1) return matches.First();
+            // Prefer exact case match — archives with duplicate case-variant entries (e.g.
+            // Texture.dds and texture.dds) are ambiguous under case-insensitive ByName lookup.
+            // The modlist path recorded on Windows is the authoritative expected name.
+            var exact = matches.FirstOrDefault(f =>
+                string.Equals(f.Name.ToString(), itm.ToString(), StringComparison.Ordinal));
+            return exact ?? matches.First();
+        });
     }
 
     public static class EmptyLookup<TKey, TElement>

@@ -20,7 +20,7 @@ public static class ConsoleOutput
 
     public static void PrintProgressWithDuration(string message)
     {
-        Console.Write(message + "\r");
+        Console.Write(message + "\x1b[K\r");
         Console.Out.Flush();
     }
 

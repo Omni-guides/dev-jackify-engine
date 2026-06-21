@@ -578,7 +578,14 @@ public class FileExtractor
             // Add small delay to ensure file system sync after post-processing
             await Task.Delay(100, token);
 
-            
+            // On Linux, an archive may contain entries that differ only in case (e.g. Texture.dds
+            // and texture.dds). Linux filesystems keep both; Windows NTFS collapses them to one.
+            // -ssc- causes 7zz to extract all case variants, so deduplicate before processing:
+            // keep the entry whose name exactly matches the requested onlyFiles path; if no exact
+            // match exists, keep the last one (mirrors NTFS last-write-wins behaviour).
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) && onlyFiles != null)
+                DeduplicateCaseConflicts(dest.Path, onlyFiles);
+
             job.Dispose();
             var results = await dest.Path.EnumerateFiles()
                 .SelectAsync(async f =>
@@ -667,6 +674,9 @@ public class FileExtractor
 
             // Add small delay to ensure file system sync after post-processing
             await Task.Delay(100, token);
+
+            if (onlyFiles != null)
+                DeduplicateCaseConflicts(tempFolder.Path, onlyFiles);
 
             // Process extracted files - same as regular extraction
             var results = new Dictionary<RelativePath, T>();
@@ -1038,6 +1048,27 @@ public class FileExtractor
     /// <summary>
     /// Moves any files with backslashes in their names to the correct subdirectory structure.
     /// This handles the case where 7zip on Linux creates files with backslashes in their names
+    private void DeduplicateCaseConflicts(AbsolutePath destPath, HashSet<RelativePath> onlyFiles)
+    {
+        var onlyFilesExact = onlyFiles.Select(f => f.ToString()).ToHashSet(StringComparer.Ordinal);
+        var groups = destPath.EnumerateFiles()
+            .GroupBy(f => f.RelativeTo(destPath).ToString(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1);
+
+        foreach (var group in groups)
+        {
+            var files = group.ToList();
+            var exactMatch = files.FirstOrDefault(f => onlyFilesExact.Contains(f.RelativeTo(destPath).ToString()));
+            var keep = exactMatch != default ? exactMatch : files.Last();
+            foreach (var f in files.Where(f => f != keep))
+            {
+                _logger.LogDebug("Removing case-duplicate archive entry {Dup} (keeping {Keep})",
+                    f.RelativeTo(destPath), keep.RelativeTo(destPath));
+                f.Delete();
+            }
+        }
+    }
+
     /// instead of proper directory structures.
     /// </summary>
     private async Task MoveFilesWithBackslashesToSubdirs(string extractionDir)

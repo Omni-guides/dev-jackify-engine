@@ -2,6 +2,11 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## v0.5.6 - Case-duplicate archive entries, progress line display fix
+### Bug Fixes
+* **Case-duplicate archive entries**: Archives containing entries that differ only in case (e.g. `Texture.dds` and `texture.dds`) would cause a hash-mismatch failure on Linux, since both were extracted and processed. Duplicates are now deduplicated after extraction, preferring the exact-case match from the modlist path.
+* **Garbled progress lines**: Progress output using `\r` did not clear the rest of the line, causing tails of longer previous messages to bleed through (e.g. `Writing Foo.bsaas.bsas - Foo.bsa`). Fixed with ANSI erase-to-end-of-line.
+
 ## v0.5.5 - Heroic game detection, GitHub releases, --game override
 ### New Features
 * **Heroic Launcher game detection**: jackify-engine now detects games installed via Heroic Games Launcher on Linux, covering GOG games (`~/.config/heroic/gog_store/installed.json`) and Epic Games (`store_cache/legendary_library.json`). Both native and Flatpak Heroic installs are supported. This allows modlists targeting GOG/Epic titles (Skyrim SE AE, Fallout New Vegas, Oblivion, Morrowind, Witcher 3, Cyberpunk 2077, etc.) to locate the game automatically without any manual configuration.
