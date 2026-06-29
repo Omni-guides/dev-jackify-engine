@@ -590,7 +590,7 @@ public abstract class AInstaller<T>
                     }
                         break;
 
-                    case FromArchive _:
+                    case FromArchive fa:
                         if (grouped[vf].Count() == 1)
                         {
                             var targetPath = destPath;
@@ -609,12 +609,26 @@ public abstract class AInstaller<T>
 
                             var hash = await sf.MoveHashedAsync(targetPath, token);
                             destPathForHash = targetPath;
+                            if (hash != file.Hash)
+                            {
+                                var archiveName = ModList.Archives.FirstOrDefault(ar => ar.Hash == fa.ArchiveHashPath.Hash)?.Name
+                                    ?? fa.ArchiveHashPath.Hash.ToString();
+                                _logger.LogError("Hash mismatch source: archive={Archive}, pathInArchive={ArchivePath}",
+                                    archiveName, string.Join(" -> ", fa.ArchiveHashPath.Parts.Select(p => p.ToString())));
+                            }
                             ThrowOnNonMatchingHash(file, hash);
                         }
                         else
                         {
                             await using var s = await sf.GetStream();
                             var hash = await destPath.WriteAllHashedAsync(s, token, false);
+                            if (hash != file.Hash)
+                            {
+                                var archiveName = ModList.Archives.FirstOrDefault(ar => ar.Hash == fa.ArchiveHashPath.Hash)?.Name
+                                    ?? fa.ArchiveHashPath.Hash.ToString();
+                                _logger.LogError("Hash mismatch source: archive={Archive}, pathInArchive={ArchivePath}",
+                                    archiveName, string.Join(" -> ", fa.ArchiveHashPath.Parts.Select(p => p.ToString())));
+                            }
                             ThrowOnNonMatchingHash(file, hash);
                         }
 

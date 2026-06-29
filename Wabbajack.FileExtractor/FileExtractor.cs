@@ -1060,7 +1060,7 @@ public class FileExtractor
             var files = group.ToList();
             var exactMatch = files.FirstOrDefault(f => onlyFilesExact.Contains(f.RelativeTo(destPath).ToString()));
             var keep = exactMatch != default ? exactMatch : files.Last();
-            foreach (var f in files.Where(f => f != keep))
+            foreach (var f in files.Where(f => !string.Equals(f.ToString(), keep.ToString(), StringComparison.Ordinal)))
             {
                 _logger.LogDebug("Removing case-duplicate archive entry {Dup} (keeping {Keep})",
                     f.RelativeTo(destPath), keep.RelativeTo(destPath));

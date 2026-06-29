@@ -41,22 +41,34 @@ public class GetModlistUrl
         var modlists = await _client.LoadLists();
         _logger.LogInformation("Loaded {Count} lists", modlists.Length);
 
-        // Search for modlist by title, namespaced name, or author
-        var matchingModlist = modlists.FirstOrDefault(m => 
+        var matches = modlists.Where(m =>
             (m.Title?.Contains(name, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (m.NamespacedName?.Contains(name, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (m.Author?.Contains(name, StringComparison.OrdinalIgnoreCase) ?? false));
+            (m.NamespacedName?.Contains(name, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
 
-        if (matchingModlist == null)
+        if (matches.Count == 0)
         {
             _logger.LogError("No modlist found matching '{Name}'", name);
             _logger.LogInformation("Try searching with a partial name or check available modlists with 'list-modlists'");
             return 1;
         }
 
-        // Output the namespaced name (machineURL)
-        Console.WriteLine(matchingModlist.NamespacedName);
-        _logger.LogInformation("{MachineURL}", matchingModlist.NamespacedName);
+        // Prefer exact title match to resolve ambiguity (e.g. "Morrowind Remastered" vs "Morrowind Remastered Legacy Edition")
+        var exactMatches = matches.Where(m =>
+            string.Equals(m.Title, name, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(m.NamespacedName, name, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (exactMatches.Count == 1)
+            matches = exactMatches;
+
+        if (matches.Count > 1)
+        {
+            _logger.LogError("Multiple modlists match '{Name}'. Use a more specific name:", name);
+            foreach (var m in matches)
+                _logger.LogInformation("  {Title} ({MachineURL})", m.Title, m.NamespacedName);
+            return 1;
+        }
+
+        Console.WriteLine(matches[0].NamespacedName);
+        _logger.LogInformation("{MachineURL}", matches[0].NamespacedName);
         return 0;
     }
 }

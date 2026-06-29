@@ -2,6 +2,14 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## v0.5.7 - Case-duplicate dedup fix, failed download JDM routing, get-modlist-url improvements
+### Bug Fixes
+* **Case-duplicate dedup not removing files** *(fixes #213)*: The 0.5.6 dedup introduced in `DeduplicateCaseConflicts` correctly identified which file to keep but never deleted the other — `AbsolutePath.!=` uses case-insensitive comparison, so `w_knife_glass.nif != W_knife_glass.nif` evaluated to `false`. Both case-variants survived to the install step; the wrong one was processed first, installing incorrect content and throwing a hash-mismatch. Fixed by comparing physical path strings with ordinal comparison.
+* **Rate-limited/403 Nexus downloads now routed to JDM**: When a premium Nexus CDN download fails with HTTP 429 (rate-limit) or 403, the archive is now collected and emitted via the existing `manual_download_required` JSON event protocol, allowing Jackify's JDM dialog to redirect the user. Previously these failures were logged and silently dropped, causing the install to fail later during the archive verification phase. Covers both `HttpRequestException` and `HttpException` (CDN path).
+* **`get-modlist-url` returns wrong list on partial name match**: `FirstOrDefault` returned the first alphabetical match when multiple lists shared a search term (e.g. "Morrowind Remastered" returned Legacy Edition instead of the OpenMW edition). Now collects all matches, prefers an exact title/namespaced-name match, and errors with the full match list if still ambiguous.
+### Diagnostics
+* **Hash mismatch now logs source archive and internal path**: When a `FromArchive` directive fails its hash check, the archive filename and internal archive path are logged at ERROR level before the throw, making it possible to identify which archive caused the failure without re-running with full debug output.
+
 ## v0.5.6 - Case-duplicate archive entries, progress line display fix
 ### Bug Fixes
 * **Case-duplicate archive entries**: Archives containing entries that differ only in case (e.g. `Texture.dds` and `texture.dds`) would cause a hash-mismatch failure on Linux, since both were extracted and processed. Duplicates are now deduplicated after extraction, preferring the exact-case match from the modlist path.

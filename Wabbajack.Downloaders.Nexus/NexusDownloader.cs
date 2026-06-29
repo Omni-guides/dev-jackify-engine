@@ -155,22 +155,33 @@ public class NexusDownloader : ADownloader<Nexus>, IUrlDownloader
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "Nexus API error downloading {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID}): {Message}", 
+                _logger.LogError(ex, "Nexus API error downloading {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID}): {Message}",
                     archive.Name, state.Game, state.ModID, state.FileID, ex.Message);
-                
+
                 if (ex.StatusCode == HttpStatusCode.Forbidden)
                 {
-                    _logger.LogDebug("403 Forbidden for {ArchiveName} — Premium required, routing to manual download", archive.Name);
+                    _logger.LogDebug("403 Forbidden for {ArchiveName} — routing to manual download", archive.Name);
+                    return await DownloadManually(archive, state, destination, job, token);
+                }
+                else if (ex.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    _logger.LogInformation("Rate-limited downloading {ArchiveName} — routing to manual download protocol", archive.Name);
                     return await DownloadManually(archive, state, destination, job, token);
                 }
                 else if (ex.StatusCode == HttpStatusCode.NotFound)
                 {
                     _logger.LogError("Nexus mod file not found: {ArchiveName} (Game: {Game}, ModID: {ModID}, FileID: {FileID}). " +
-                        "This mod or file may have been removed from NexusMods. Please check the modlist for updates or contact the modlist author.", 
+                        "This mod or file may have been removed from NexusMods. Please check the modlist for updates or contact the modlist author.",
                         archive.Name, state.Game, state.ModID, state.FileID);
                 }
 
                 throw;
+            }
+            catch (HttpException ex) when (ex.Code == (int)HttpStatusCode.TooManyRequests || ex.Code == (int)HttpStatusCode.Forbidden)
+            {
+                // CDN download threw HttpException (our custom type) rather than HttpRequestException
+                _logger.LogInformation("HTTP {Code} downloading {ArchiveName} — routing to manual download protocol", ex.Code, archive.Name);
+                return await DownloadManually(archive, state, destination, job, token);
             }
         }
     }
