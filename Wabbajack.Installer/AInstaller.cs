@@ -380,7 +380,10 @@ public abstract class AInstaller<T>
         ModList.Directives
             .Where(d => d.To.Depth > 1)
             .Select(d => _configuration.Install.Combine(d.To.Parent))
-            .Distinct()
+            // AbsolutePath.Equals/GetHashCode are case-insensitive (correct for NTFS, wrong here):
+            // dedupe by exact string so every case-distinct directory (e.g. "Materials" vs
+            // "materials", both legitimate on a case-sensitive Linux filesystem) actually gets created.
+            .DistinctBy(f => f.ToString(), StringComparer.Ordinal)
             .Do(f => f.CreateDirectory());
         return Task.CompletedTask;
     }

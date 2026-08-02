@@ -2,6 +2,10 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## v0.5.8 - BSA folder casing fix
+### Bug Fixes
+* Fixed another instance of multiple path casing inside BSA files.
+
 ## v0.5.7 - Case-duplicate dedup fix, failed download JDM routing, get-modlist-url improvements
 ### Bug Fixes
 * **Case-duplicate dedup not removing files** *(fixes #213)*: The 0.5.6 dedup introduced in `DeduplicateCaseConflicts` correctly identified which file to keep but never deleted the other — `AbsolutePath.!=` uses case-insensitive comparison, so `w_knife_glass.nif != W_knife_glass.nif` evaluated to `false`. Both case-variants survived to the install step; the wrong one was processed first, installing incorrect content and throwing a hash-mismatch. Fixed by comparing physical path strings with ordinal comparison.
