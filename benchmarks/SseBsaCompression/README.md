@@ -47,4 +47,4 @@ Alternate modes change compressed archive bytes and sizes. The installer retains
 
 The compression test suite rebuilds complete SSE fixtures at all three levels, compares every extracted path, size and byte, exercises uncompressed SSE and compressed TES5 fixtures, and verifies that omitted/default settings produce identical bytes to explicit maximum compression.
 
-Validation on this Mac covers the archive suite, engine compilation and CLI help. A full CLI install invocation is blocked by the engine's existing native SQLite dependency (`SQLite.Interop.dll` is unavailable on this macOS arm64 setup); Linux installation and runtime validation remain outstanding.
+Validation on this Mac covers the archive suite, engine compilation, a self-contained `linux-x64` publish and CLI help. Publishing a Linux binary is not a Linux runtime test. A full CLI install invocation is blocked by the engine's existing native SQLite dependency (`SQLite.Interop.dll` is unavailable on this macOS arm64 setup); Linux installation and runtime validation remain outstanding. The existing two-argument archive-builder entry points are retained for binary compatibility.

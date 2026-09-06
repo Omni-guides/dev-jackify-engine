@@ -108,8 +108,13 @@ public class Builder : IBuilder
         return self;
     }
 
+    public static Builder Create(BSAState bsaStateObject, TemporaryFileManager tempGenerator)
+    {
+        return Create(bsaStateObject, tempGenerator, LZ4Level.L12_MAX);
+    }
+
     public static Builder Create(BSAState bsaStateObject, TemporaryFileManager tempGenerator,
-        LZ4Level compressionLevel = LZ4Level.L12_MAX)
+        LZ4Level compressionLevel)
     {
         if (!Enum.IsDefined(typeof(LZ4Level), compressionLevel))
             throw new ArgumentOutOfRangeException(nameof(compressionLevel));

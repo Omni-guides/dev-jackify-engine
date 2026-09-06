@@ -52,8 +52,13 @@ public static class BSADispatch
         };
     }
 
+    public static IBuilder CreateBuilder(IArchive oldState, TemporaryFileManager manager)
+    {
+        return CreateBuilder(oldState, manager, LZ4Level.L12_MAX);
+    }
+
     public static IBuilder CreateBuilder(IArchive oldState, TemporaryFileManager manager,
-        LZ4Level sseCompressionLevel = LZ4Level.L12_MAX)
+        LZ4Level sseCompressionLevel)
     {
         return oldState switch
         {
