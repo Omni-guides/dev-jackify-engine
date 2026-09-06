@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using K4os.Compression.LZ4;
 using IniParser;
 using IniParser.Model.Configuration;
 using IniParser.Parser;
@@ -22,6 +23,7 @@ using Wabbajack.Downloaders;
 using Wabbajack.Downloaders.GameFile;
 using Wabbajack.DTOs;
 using Wabbajack.DTOs.BSA.FileStates;
+using Wabbajack.DTOs.BSA.ArchiveStates;
 using Wabbajack.DTOs.Directives;
 using Wabbajack.DTOs.DownloadStates;
 using Wabbajack.DTOs.Interventions;
@@ -569,7 +571,7 @@ public class StandardInstaller : AInstaller<StandardInstaller>
             var bsaName = bsa.To.FileName.ToString();
             fileProgressTracker.UpdateProgress(bsaName, "Building", 0, totalSteps, DateTime.UtcNow);
 
-            await using var a = BSADispatch.CreateBuilder(bsa.State, _manager);
+            await using var a = BSADispatch.CreateBuilder(bsa.State, _manager, _configuration.SseBsaCompressionLevel);
 
             var streams = await bsa.FileStates.PMapAllBatchedAsync(_limiter, async state =>
             {
@@ -608,8 +610,6 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
             streams.Do(s => s.Dispose());
 
-            await FileHashCache.FileHashWriteCache(outPath, bsa.Hash);
-
             ConsoleOutput.PrintProgressWithDuration($"Verifying {bsa.To.FileName}");
             var reader = await BSADispatch.Open(outPath);
             var results = await reader.Files.PMapAllBatchedAsync(_limiter, async state =>
@@ -633,6 +633,13 @@ public class StandardInstaller : AInstaller<StandardInstaller>
 
                 return (srcDirective, hash);
             }).ToHashSet();
+
+            // Alternate SSE compression preserves file contents, not archive bytes. Never
+            // cache the modlist's expected archive hash against a differently encoded BSA.
+            var usesAlternateCompression = _configuration.SseBsaCompressionLevel != LZ4Level.L12_MAX
+                && bsa.State is BSAState { Version: (uint)VersionType.SSE };
+            var archiveHash = usesAlternateCompression ? await outPath.Hash(token) : bsa.Hash;
+            await FileHashCache.FileHashWriteCache(outPath, archiveHash);
 
             fileProgressTracker.UpdateProgress(bsaName, "Building", totalSteps, totalSteps, DateTime.UtcNow);
             fileProgressTracker.MarkCompleted(bsaName);

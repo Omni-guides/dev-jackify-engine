@@ -36,6 +36,8 @@ public class Builder : IBuilder
 
     public VersionType HeaderType { get; set; }
 
+    public LZ4Level CompressionLevel { get; private set; } = LZ4Level.L12_MAX;
+
     public IEnumerable<RelativePath> FolderNames
     {
         get { return _files.Select(f => f.Path.Level == 1 ? default : f.Path.Parent).Distinct(); }
@@ -106,9 +108,13 @@ public class Builder : IBuilder
         return self;
     }
 
-    public static Builder Create(BSAState bsaStateObject, TemporaryFileManager tempGenerator)
+    public static Builder Create(BSAState bsaStateObject, TemporaryFileManager tempGenerator,
+        LZ4Level compressionLevel = LZ4Level.L12_MAX)
     {
+        if (!Enum.IsDefined(typeof(LZ4Level), compressionLevel))
+            throw new ArgumentOutOfRangeException(nameof(compressionLevel));
         var self = Create(tempGenerator);
+        self.CompressionLevel = compressionLevel;
         self.HeaderType = (VersionType) bsaStateObject.Version;
         self.FileFlags = (FileFlags) bsaStateObject.FileFlags;
         self.ArchiveFlags = (ArchiveFlags) bsaStateObject.ArchiveFlags;
@@ -276,7 +282,7 @@ public class FileEntry
             {
                 var r = new MemoryStream();
                 await using (var w = LZ4Stream.Encode(r,
-                    new LZ4EncoderSettings {CompressionLevel = LZ4Level.L12_MAX}, true))
+                    new LZ4EncoderSettings {CompressionLevel = _bsa.CompressionLevel}, true))
                 {
                     await _srcData.CopyToWithStatusAsync(_srcData.Length, w, token);
                 }
