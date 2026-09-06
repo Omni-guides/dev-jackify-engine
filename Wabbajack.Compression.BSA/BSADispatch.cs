@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using K4os.Compression.LZ4;
 using Wabbajack.Common;
 using Wabbajack.Common.FileSignatures;
 using Wabbajack.Compression.BSA.Interfaces;
@@ -53,10 +54,16 @@ public static class BSADispatch
 
     public static IBuilder CreateBuilder(IArchive oldState, TemporaryFileManager manager)
     {
+        return CreateBuilder(oldState, manager, LZ4Level.L12_MAX);
+    }
+
+    public static IBuilder CreateBuilder(IArchive oldState, TemporaryFileManager manager,
+        LZ4Level sseCompressionLevel)
+    {
         return oldState switch
         {
             TES3State tes3 => new Builder(tes3),
-            BSAState bsa => TES5Archive.Builder.Create(bsa, manager),
+            BSAState bsa => TES5Archive.Builder.Create(bsa, manager, sseCompressionLevel),
             BA2State ba2 => BA2Archive.Builder.Create(ba2, manager),
             _ => throw new NotImplementedException()
         };

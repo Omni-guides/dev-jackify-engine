@@ -8,7 +8,7 @@ Jackify Engine is a minimal Linux port of Wabbajack that:
 - Targets .NET 8.0 for optimal Linux compatibility
 - Uses Steam Proton for texture processing (texconv.exe)
 - Maintains upstream performance 
-- Achieves identical output hashes to Windows Wabbajack
+- Achieves identical output hashes to Windows Wabbajack with the default compression settings
 - Requires no system Wine installation
 
 ## Source Code Availability
@@ -45,6 +45,19 @@ This repository contains the source code for Jackify Engine, a Linux-native fork
 - **Proactive Detection**: Linux 7zz extraction issues detected before extraction fails
 - **Fallback Safety Net**: Automatic Proton 7z.exe retry for missed encoding issues
 
+### Optional SSE Archive Compression
+
+The engine `install` command accepts `--sse-bsa-compression maximum|balanced|fast`.
+`maximum` is the unchanged default. `balanced` and `fast` trade larger compressed
+SSE BSAs for less compression work, without changing the extracted file contents
+or texture quality. These options are currently exposed by the engine CLI only.
+
+Alternate modes produce different archive hashes. Extracted-file verification
+remains enabled, and the cache records the actual archive hash. Subsequent
+installs/updates may rebuild these archives; retain `maximum` when exact archive
+bytes are required. See the [reproducible benchmark and limitations](benchmarks/SseBsaCompression/README.md)
+for the measured CPU/size tradeoff and outstanding Linux validation.
+
 ## About This Fork
 
 Jackify Engine is a fork of the upstream [Wabbajack](https://github.com/wabbajack-tools/wabbajack) project. For information about the original Wabbajack project, including its features, community, and development, please visit the [official Wabbajack repository](https://github.com/wabbajack-tools/wabbajack).
@@ -57,7 +70,7 @@ Jackify Engine is a fork of the upstream [Wabbajack](https://github.com/wabbajac
 
 ### Compatibility
 - **Full Modlist Compatibility**: All Wabbajack modlists work identically to upstream Wabbajack
-- **Identical Output**: Same file hashes as Windows Wabbajack installations
+- **Identical Output**: Same file hashes as Windows Wabbajack installations with the default compression settings
 - **Upstream Features**: All core Wabbajack CLI functionality preserved
 
 ## License

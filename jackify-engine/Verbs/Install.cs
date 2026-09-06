@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using K4os.Compression.LZ4;
 using Wabbajack.CLI.Builder;
 using Wabbajack.Common;
 using Wabbajack.Downloaders;
@@ -54,10 +55,27 @@ public class Install
         new OptionDefinition(typeof(AbsolutePath), "o", "output", "Output path"),
         new OptionDefinition(typeof(AbsolutePath), "d", "downloads", "Downloads path"),
         new OptionDefinition(typeof(AbsolutePath), "g", "game", "Game installation directory (overrides auto-detection)", IsHidden: true),
+        new OptionDefinition(typeof(string), "", "sse-bsa-compression", "SSE archive compression: maximum (default), balanced, or fast. Faster modes produce larger, byte-different archives; subsequent installs may rebuild them."),
     });
 
-    internal async Task<int> Run(AbsolutePath wabbajack, AbsolutePath output, AbsolutePath downloads, string machineUrl, AbsolutePath game, CancellationToken token)
+    internal async Task<int> Run(AbsolutePath wabbajack, AbsolutePath output, AbsolutePath downloads, string machineUrl, AbsolutePath game, string sseBsaCompression, CancellationToken token)
     {
+        var compressionLevel = sseBsaCompression?.ToLowerInvariant() switch
+        {
+            null or "maximum" => LZ4Level.L12_MAX,
+            "balanced" => LZ4Level.L06_HC,
+            "fast" => LZ4Level.L00_FAST,
+            _ => (LZ4Level?)null
+        };
+        if (compressionLevel == null)
+        {
+            StructuredError.WriteError(StructuredError.ErrorType.ValidationFailed,
+                "--sse-bsa-compression must be maximum, balanced, or fast.");
+            return StructuredError.ExitCodeFor(StructuredError.ErrorType.ValidationFailed);
+        }
+        if (compressionLevel != LZ4Level.L12_MAX)
+            _logger.LogWarning("Using {Level} for SSE BSA compression. Archive bytes and sizes differ from the modlist; subsequent installs may rebuild these archives. Extracted file verification remains enabled.", compressionLevel);
+
         if (!string.IsNullOrEmpty(machineUrl))
         {
             if (!await DownloadMachineUrl(machineUrl, wabbajack, token))
@@ -142,7 +160,8 @@ public class Install
             ModList = modlist,
             Game = modlist.GameType,
             ModlistArchive = wabbajack,
-            GameFolder = gameFolder
+            GameFolder = gameFolder,
+            SseBsaCompressionLevel = compressionLevel.Value
         });
 
         InstallResult result;
