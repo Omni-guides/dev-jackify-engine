@@ -114,6 +114,9 @@ public abstract class AInstaller<T>
     public Dictionary<Hash, AbsolutePath> HashedArchives { get; set; } = new();
     public bool UseCompression { get; set; }
 
+    /// <summary>Populated when Begin() returns InstallResult.DownloadFailed due to unresolved archives.</summary>
+    public MissingArchivesReport? MissingArchivesReport { get; set; }
+
     public TemporaryPath ExtractedModlistFolder { get; set; }
 
     public ModList ModList => _configuration.ModList;
@@ -318,58 +321,71 @@ public abstract class AInstaller<T>
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("Missing archive with hash"))
         {
-            // Extract the hash from the error message and try to find the friendly name
+            // This should be unreachable in the normal Begin() flow now - StandardInstaller checks
+            // for unresolved archives (both download failures and GameFileSource mismatches) before
+            // PrimeVFS runs. Kept as a defensive backstop for any other caller of BackfillMissing.
             var hashMatch = System.Text.RegularExpressions.Regex.Match(ex.Message, @"Missing archive with hash ([A-Za-z0-9+/=]+)");
-            if (hashMatch.Success)
+            if (!hashMatch.Success)
             {
-                try
-                {
-                    var missingHash = Hash.FromBase64(hashMatch.Groups[1].Value);
-                    var archive = ModList.Archives.FirstOrDefault(a => a.Hash == missingHash);
-                    var archiveName = archive?.Name ?? "Unknown";
+                _logger.LogError("VFS priming failed due to missing archives. Installation cannot continue.");
+                throw new InvalidOperationException("Installation failed: Required archives are missing. " +
+                                                  "Please ensure all files have been downloaded successfully before retrying installation.", ex);
+            }
 
-                    // Try to diagnose the issue
-                    string diagnostic = "";
-                    if (archive != null)
-                    {
-                        var expectedFile = _configuration.Downloads.Combine(archiveName);
-                        if (expectedFile.FileExists())
-                        {
-                            var actualSize = expectedFile.Size();
-                            if (actualSize != archive.Size)
-                            {
-                                diagnostic = $" File exists but wrong size: expected {archive.Size} bytes, found {actualSize} bytes (corrupted download).";
-                            }
-                            else
-                            {
-                                diagnostic = " File exists with correct size but wrong hash (corrupted or modified).";
-                            }
-                        }
-                        else
-                        {
-                            diagnostic = " File not found in downloads directory.";
-                        }
-                    }
+            Hash missingHash;
+            try
+            {
+                missingHash = Hash.FromBase64(hashMatch.Groups[1].Value);
+            }
+            catch (Exception parseEx)
+            {
+                _logger.LogError("Failed to parse hash from error message: {ParseError}", parseEx.Message);
+                _logger.LogError("VFS priming failed due to missing archives. Installation cannot continue.");
+                throw new InvalidOperationException("Installation failed: Required archives are missing. " +
+                                                  "Please ensure all files have been downloaded successfully before retrying installation.", ex);
+            }
 
-                    _logger.LogError("VFS priming failed: Archive '{ArchiveName}' (hash: {Hash}) not found in HashedArchives.{Diagnostic}",
-                        archiveName, missingHash, diagnostic);
-                    throw new InvalidOperationException($"Installation failed: Required archive '{archiveName}' could not be located.{diagnostic} " +
-                                                      "Please re-download this file and retry installation.", ex);
-                }
-                catch (Exception parseEx)
-                {
-                    _logger.LogError("Failed to parse hash from error message: {ParseError}", parseEx.Message);
-                    _logger.LogError("VFS priming failed due to missing archives. Installation cannot continue.");
-                    throw new InvalidOperationException("Installation failed: Required archives are missing from downloads directory. " +
-                                                      "Please ensure all files have been downloaded successfully before retrying installation.", ex);
-                }
+            var archive = ModList.Archives.FirstOrDefault(a => a.Hash == missingHash);
+            var archiveName = archive?.Name ?? "Unknown";
+            var isGameFile = archive?.State is GameFileSource;
+
+            string diagnostic;
+            if (archive == null)
+            {
+                diagnostic = "";
+            }
+            else if (isGameFile)
+            {
+                var state = (GameFileSource) archive.State;
+                var sourceFile = state.GameFile.RelativeTo(_gameLocator.GameLocation(state.Game));
+                diagnostic = sourceFile.FileExists()
+                    ? $" File exists but does not match what the modlist expects (expected {archive.Size} bytes, found {sourceFile.Size()} bytes, or the content differs)."
+                    : " File not found in the game installation.";
             }
             else
             {
-                _logger.LogError("VFS priming failed due to missing archives. Installation cannot continue.");
-                throw new InvalidOperationException("Installation failed: Required archives are missing from downloads directory. " +
-                                                  "Please ensure all files have been downloaded successfully before retrying installation.", ex);
+                var expectedFile = _configuration.Downloads.Combine(archiveName);
+                if (expectedFile.FileExists())
+                {
+                    var actualSize = expectedFile.Size();
+                    diagnostic = actualSize != archive.Size
+                        ? $" File exists but wrong size: expected {archive.Size} bytes, found {actualSize} bytes (corrupted download)."
+                        : " File exists with correct size but wrong hash (corrupted or modified).";
+                }
+                else
+                {
+                    diagnostic = " File not found in downloads directory.";
+                }
             }
+
+            _logger.LogError("VFS priming failed: Archive '{ArchiveName}' (hash: {Hash}) not found in HashedArchives.{Diagnostic}",
+                archiveName, missingHash, diagnostic);
+
+            var actionAdvice = isGameFile
+                ? "Verify your game installation (e.g. Steam's \"Verify integrity of game files\") or check for missing DLC, then retry installation."
+                : "Please re-download this file and retry installation.";
+            throw new InvalidOperationException(
+                $"Installation failed: Required file '{archiveName}' could not be located.{diagnostic} {actionAdvice}", ex);
         }
     }
 

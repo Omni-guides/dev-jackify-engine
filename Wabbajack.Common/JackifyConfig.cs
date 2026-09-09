@@ -13,6 +13,9 @@ public static class JackifyConfig
     private const string ConfigDirName = "jackify";
     private const string DataDirKey = "jackify_data_dir";
     private static AbsolutePath? _cachedDataDir;
+    // Nullable<AbsolutePath> is multi-word, so an unsynchronized read-check-write from concurrent
+    // texture/BSA workers risks a torn read; the lock keeps the check-then-assign atomic.
+    private static readonly object _dataDirGate = new();
 
     /// <summary>
     /// Returns the configured Jackify data directory from ~/.config/jackify/config.json.
@@ -20,8 +23,18 @@ public static class JackifyConfig
     /// </summary>
     public static AbsolutePath GetDataDirectory()
     {
-        if (_cachedDataDir != null) return _cachedDataDir!.Value;
+        if (_cachedDataDir.HasValue) return _cachedDataDir.Value;
 
+        lock (_dataDirGate)
+        {
+            if (_cachedDataDir.HasValue) return _cachedDataDir.Value;
+            _cachedDataDir = ResolveDataDirectory();
+            return _cachedDataDir.Value;
+        }
+    }
+
+    private static AbsolutePath ResolveDataDirectory()
+    {
         try
         {
             var home = Environment.GetEnvironmentVariable("HOME") ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -45,10 +58,7 @@ public static class JackifyConfig
                 {
                     var dataDir = dataDirProp.GetString();
                     if (!string.IsNullOrWhiteSpace(dataDir))
-                    {
-                        _cachedDataDir = dataDir!.ToAbsolutePath();
-                        return _cachedDataDir.Value;
-                    }
+                        return dataDir!.ToAbsolutePath();
                 }
             }
         }
@@ -57,9 +67,7 @@ public static class JackifyConfig
             // Ignore and fall through to default
         }
 
-        var fallback = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("Jackify");
-        _cachedDataDir = fallback;
-        return fallback;
+        return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).ToAbsolutePath().Combine("Jackify");
     }
 }
 

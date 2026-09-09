@@ -141,50 +141,46 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         var missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
         var nonManualMissing = missing.Where(a => a.State is not Manual && a.State is not GameFileSource).ToList();
         
-        // Auto-cleanup files with hash mismatches and retry once
+        // Retry any failed or hash-mismatched downloads once
         if (nonManualMissing.Count > 0)
         {
-            _logger.LogInformation("Detected {count} files with hash mismatches. Checking downloads...", nonManualMissing.Count);
+            _logger.LogInformation("Detected {count} failed or incomplete downloads. Retrying...", nonManualMissing.Count);
 
-            var cleanedFiles = new List<Archive>();
             foreach (var archive in nonManualMissing)
             {
                 var expectedPath = _configuration.Downloads.Combine(archive.Name);
-                if (expectedPath.FileExists())
-                {
-                    _logger.LogWarning("Hash mismatch for {name}, re-downloading...", archive.Name);
+                // Only delete if the file isn't already known-good under some other archive entry's
+                // hash; otherwise this would destroy a valid, unrelated download sharing the name.
+                if (expectedPath.FileExists() && !HashedArchives.ContainsValue(expectedPath))
                     expectedPath.Delete();
-                    cleanedFiles.Add(archive);
-                }
+                _logger.LogWarning("Retrying download: {name}", archive.Name);
             }
 
-            if (cleanedFiles.Count > 0)
-            {
-                _logger.LogInformation("Re-downloading {count} files with hash mismatches...", cleanedFiles.Count);
-                await DownloadMissingArchives(cleanedFiles, token);
-                await HashArchives(token);
-                
-                // Recheck after cleanup and retry
-                missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
-                nonManualMissing = missing.Where(a => a.State is not Manual).ToList();
-            }
+            await DownloadMissingArchives(nonManualMissing, token);
+            await HashArchives(token);
+
+            // Recheck after retry
+            missing = ModList.Archives.Where(a => !HashedArchives.ContainsKey(a.Hash)).ToList();
+            nonManualMissing = missing.Where(a => a.State is not Manual && a.State is not GameFileSource).ToList();
         }
-        
-        if (nonManualMissing.Count > 0)
+
+        // GameFileSource archives (the modlist's own copies of the user's game files) aren't
+        // retried above - a genuinely missing/wrong game file can't be fixed by re-downloading it.
+        var missingGameFiles = missing.Where(a => a.State is GameFileSource).ToList();
+
+        if (nonManualMissing.Count > 0 || missingGameFiles.Count > 0)
         {
             foreach (var a in nonManualMissing)
                 _logger.LogCritical("Unable to download {name} ({primaryKeyString})", a.Name,
                     a.State.PrimaryKeyString);
-            
-            if (nonManualMissing.Count == 1)
-            {
-                _logger.LogCritical("Cannot continue, was unable to download 1 archive. This may be due to network issues, server problems, or corrupted existing files.");
-            }
-            else
-            {
-                _logger.LogCritical("Cannot continue, was unable to download {count} archives. This may be due to network issues, server problems, or corrupted existing files.", nonManualMissing.Count);
-            }
+            foreach (var a in missingGameFiles)
+                _logger.LogCritical("Game file does not match modlist: {name} ({primaryKeyString})", a.Name,
+                    a.State.PrimaryKeyString);
 
+            var totalCount = nonManualMissing.Count + missingGameFiles.Count;
+            _logger.LogCritical("Cannot continue, {count} required file(s) could not be resolved.", totalCount);
+
+            MissingArchivesReport = BuildMissingArchivesReport(nonManualMissing, missingGameFiles);
             return InstallResult.DownloadFailed;
         }
 
@@ -232,6 +228,48 @@ public class StandardInstaller : AInstaller<StandardInstaller>
         NextStep(Consts.StepFinished, "Finished", 1);
         _logger.LogInformation("Finished Modlist Installation");
         return InstallResult.Succeeded;
+    }
+
+    private MissingArchivesReport BuildMissingArchivesReport(List<Archive> downloadFailures,
+        List<Archive> gameFileMismatches)
+    {
+        var report = new MissingArchivesReport
+        {
+            TotalGameFileSourceArchives = ModList.Archives.Count(a => a.State is GameFileSource)
+        };
+
+        foreach (var a in downloadFailures)
+            report.Entries.Add(new MissingArchiveEntry {Name = a.Name, SourceType = "download"});
+
+        foreach (var a in gameFileMismatches)
+        {
+            var state = (GameFileSource) a.State;
+            var sourceFile = state.GameFile.RelativeTo(_gameLocator.GameLocation(state.Game));
+
+            string reason;
+            long? actualSize = null;
+            if (!sourceFile.FileExists())
+            {
+                reason = "missing";
+            }
+            else
+            {
+                actualSize = sourceFile.Size();
+                reason = actualSize != a.Size ? "wrong_size" : "wrong_hash";
+            }
+
+            report.Entries.Add(new MissingArchiveEntry
+            {
+                Name = a.Name,
+                SourceType = "game_file",
+                Reason = reason,
+                ExpectedSize = a.Size,
+                ActualSize = actualSize,
+                GameVersion = string.IsNullOrEmpty(state.GameVersion) ? null : state.GameVersion
+            });
+        }
+
+        return report;
     }
 
 
@@ -645,8 +683,13 @@ public class StandardInstaller : AInstaller<StandardInstaller>
                 var currentBSA = (int)Interlocked.Read(ref currentBSAIndex);
                 ConsoleOutput.PrintFileProgress("Completed", bsaName, percent, speed, currentBSA, totalBSAs);
             }
+
+            // Reclaim this BSA's staging disk now rather than holding every BSA's staged files
+            // until the whole BuildBSAs loop completes.
+            try { sourceDir.DeleteDirectory(); }
+            catch (IOException ex) { _logger.LogWarning("Could not remove BSA staging folder {SourceDir}: {msg}", sourceDir, ex.Message); }
         }
-        
+
         // Clear the progress line after BSA building is complete
         ConsoleOutput.ClearProgressLine();
 

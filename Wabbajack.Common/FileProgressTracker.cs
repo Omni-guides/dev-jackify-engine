@@ -14,6 +14,7 @@ public class FileProgressTracker : IDisposable
     private readonly Dictionary<string, FileProgressInfo> _activeFiles = new();
     private bool _disposed = false;
     private const int CompletedFileRetentionSeconds = 3; // Keep completed files visible for 3 seconds
+    private const double MinSpeedSampleIntervalSeconds = 0.1; // Floor for delta-based rate calc; avoids inflated instantaneous rates from bursty callback timing
 
     /// <summary>
     /// Updates progress for a file. Calculates speed from progress deltas.
@@ -40,13 +41,15 @@ public class FileProgressTracker : IDisposable
             }
             else
             {
-                // Calculate speed from delta
+                // Calculate speed from delta, but only when enough time has passed to make the
+                // rate meaningful. Skipped samples fold into the next one's delta instead of
+                // advancing the anchor, so percent stays live without distorting speed.
                 var timeDelta = (updateTime - info.LastUpdateTime).TotalSeconds;
-                if (timeDelta > 0 && currentBytes > info.LastBytes)
+                if (timeDelta >= MinSpeedSampleIntervalSeconds && currentBytes > info.LastBytes)
                 {
                     var bytesDelta = currentBytes - info.LastBytes;
                     var bytesPerSecond = bytesDelta / timeDelta;
-                    
+
                     // Use exponential moving average for smoother speed display
                     if (info.SpeedBytesPerSecond > 0)
                     {
@@ -56,10 +59,11 @@ public class FileProgressTracker : IDisposable
                     {
                         info.SpeedBytesPerSecond = bytesPerSecond;
                     }
+
+                    info.LastUpdateTime = updateTime;
+                    info.LastBytes = currentBytes;
                 }
 
-                info.LastUpdateTime = updateTime;
-                info.LastBytes = info.CurrentBytes;
                 info.CurrentBytes = currentBytes;
                 info.TotalBytes = totalBytes;
             }

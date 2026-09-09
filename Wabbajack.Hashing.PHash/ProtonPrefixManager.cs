@@ -9,6 +9,7 @@ using Wabbajack.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Wabbajack.Hashing.PHash
 {
@@ -18,7 +19,8 @@ namespace Wabbajack.Hashing.PHash
         private readonly AbsolutePath _currentPrefix;
         private readonly ProtonDetector _protonDetector;
         private readonly ILogger _logger;
-        private bool _initialized = false;
+        private volatile bool _initialized = false;
+        private readonly SemaphoreSlim _initializationGate = new(1, 1);
         private readonly string _gpuDisplay;
         private bool _gpuConfigLogged = false;
 
@@ -113,13 +115,15 @@ namespace Wabbajack.Hashing.PHash
         {
             try
             {
-                // Try to run lspci to detect NVIDIA GPUs
+                // Try to run lspci to detect NVIDIA GPUs. Stderr is left unredirected (inherits the
+                // parent's) rather than captured and never drained: redirecting it without reading it
+                // risks a deadlock if lspci fills the stderr pipe while ReadToEnd blocks on stdout.
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "lspci",
                     Arguments = "",
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
+                    RedirectStandardError = false,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
@@ -263,11 +267,25 @@ namespace Wabbajack.Hashing.PHash
 
         public async Task<AbsolutePath> GetOrCreatePrefix()
         {
-            if (!_initialized)
+            if (_initialized)
             {
-                await InitializePrefix();
-                _initialized = true;
+                return _currentPrefix;
             }
+
+            await _initializationGate.WaitAsync();
+            try
+            {
+                if (!_initialized)
+                {
+                    await InitializePrefix();
+                    _initialized = true;
+                }
+            }
+            finally
+            {
+                _initializationGate.Release();
+            }
+
             return _currentPrefix;
         }
 
@@ -454,6 +472,7 @@ namespace Wabbajack.Hashing.PHash
 
         public void Dispose()
         {
+            _initializationGate.Dispose();
             Cleanup();
         }
     }

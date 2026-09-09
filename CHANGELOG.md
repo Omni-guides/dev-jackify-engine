@@ -2,6 +2,18 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## v0.5.9 - Reliability fixes: download retry, Proton detection caching, transfer speed reporting
+### Bug Fixes
+* Download retry now always runs for archives still missing after the download phase, even if no partial file was left behind.
+* Fixed a retry-check bug that could misidentify a game file as a failed download.
+* Fixed transfer speed reporting on systems with more than one active network interface.
+* Fixed per-file download speed occasionally spiking to implausible values.
+### Improvements
+* Proton wrapper path is now cached instead of being re-detected on every texture conversion call.
+* BSA staging folders are cleaned up as each archive finishes, instead of all at once at the end.
+* Fixed a couple of thread-safety issues and a potential deadlock during GPU detection.
+* Failed installs now report missing archives and mismatched game files in a single, clearer summary instead of a generic error message.
+
 ## v0.5.8 - BSA folder casing fix
 ### Bug Fixes
 * Fixed another instance of multiple path casing inside BSA files.

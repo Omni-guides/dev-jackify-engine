@@ -23,6 +23,7 @@ public static class StructuredError
         public const string DownloadStalled  = "download_stalled";
         public const string ValidationFailed = "validation_failed";
         public const string EngineError      = "engine_error";
+        public const string MissingArchives  = "missing_archives";
     }
 
     /// <summary>
@@ -32,7 +33,10 @@ public static class StructuredError
     public static int ExitCodeFor(string type) => type switch
     {
         ErrorType.AuthFailed or ErrorType.PremiumRequired                                => 2,
-        ErrorType.NetworkError or ErrorType.DownloadStalled                              => 3,
+        // Same bucket as NetworkError: missing_archives replaces the InstallResult.DownloadFailed
+        // path this exit code already covered, so existing exit-code handling doesn't break -
+        // the new "type" field and its context payload are what carry the finer-grained detail.
+        ErrorType.NetworkError or ErrorType.DownloadStalled or ErrorType.MissingArchives => 3,
         ErrorType.DiskFull or ErrorType.DiskError or ErrorType.PermissionDenied          => 4,
         ErrorType.ArchiveCorrupt or ErrorType.ValidationFailed or ErrorType.FileNotFound => 5,
         _                                                                                 => 6,

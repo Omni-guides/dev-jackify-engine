@@ -166,12 +166,55 @@ public class Install
             return StructuredError.ExitCodeFor(type);
         }
 
+        int EmitMissingArchives()
+        {
+            var report = installer.MissingArchivesReport;
+            if (report == null || report.Entries.Count == 0)
+                return EmitAndReturn(StructuredError.ErrorType.NetworkError,
+                    "Installation failed: one or more downloads could not be completed.");
+
+            var downloadFailures = report.Entries.Where(e => e.SourceType == "download").ToList();
+            var gameFileMismatches = report.Entries.Where(e => e.SourceType == "game_file").ToList();
+
+            string message;
+            if (downloadFailures.Count > 0 && gameFileMismatches.Count > 0)
+                message = $"{downloadFailures.Count} archive(s) could not be downloaded, and " +
+                           $"{gameFileMismatches.Count} of {report.TotalGameFileSourceArchives} game files " +
+                           "do not match what this modlist expects.";
+            else if (gameFileMismatches.Count > 0)
+                message = $"{gameFileMismatches.Count} of {report.TotalGameFileSourceArchives} game files " +
+                           "do not match what this modlist expects.";
+            else
+                message = downloadFailures.Count == 1
+                    ? "Unable to download 1 archive."
+                    : $"Unable to download {downloadFailures.Count} archives.";
+
+            var context = new Dictionary<string, object?>
+            {
+                ["download_failures"] = downloadFailures.Select(e => new Dictionary<string, object?>
+                {
+                    ["name"] = e.Name
+                }).ToList(),
+                ["game_file_mismatches"] = gameFileMismatches.Select(e => new Dictionary<string, object?>
+                {
+                    ["name"] = e.Name,
+                    ["reason"] = e.Reason,
+                    ["expected_size"] = e.ExpectedSize,
+                    ["actual_size"] = e.ActualSize,
+                    ["game_version"] = e.GameVersion
+                }).ToList(),
+                ["game_file_total"] = report.TotalGameFileSourceArchives
+            };
+
+            StructuredError.WriteError(StructuredError.ErrorType.MissingArchives, message, context);
+            return StructuredError.ExitCodeFor(StructuredError.ErrorType.MissingArchives);
+        }
+
         return result switch
         {
             InstallResult.Succeeded   => 0,
             InstallResult.Cancelled   => 1,
-            InstallResult.DownloadFailed => EmitAndReturn(StructuredError.ErrorType.NetworkError,
-                "Installation failed: one or more downloads could not be completed."),
+            InstallResult.DownloadFailed => EmitMissingArchives(),
             InstallResult.GameMissing => EmitAndReturn(StructuredError.ErrorType.FileNotFound,
                 "Installation failed: the target game was not found on this system."),
             InstallResult.GameInvalid => EmitAndReturn(StructuredError.ErrorType.ValidationFailed,

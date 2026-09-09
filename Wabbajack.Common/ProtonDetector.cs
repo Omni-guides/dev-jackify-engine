@@ -4,7 +4,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Wabbajack.Paths;
@@ -17,6 +17,9 @@ public class ProtonDetector
 {
     private readonly ILogger<ProtonDetector> _logger;
     private string? _cachedWinePath;
+    private string? _cachedWrapperPath;
+    private volatile bool _wrapperPathResolved;
+    private readonly SemaphoreSlim _wrapperPathGate = new(1, 1);
 
     public ProtonDetector(ILogger<ProtonDetector> logger)
     {
@@ -34,13 +37,36 @@ public class ProtonDetector
     }
 
     /// <summary>
-    /// Gets the best available Proton wrapper path, prioritizing Proton versions
+    /// Gets the best available Proton wrapper path, prioritizing Proton versions. Resolved once
+    /// per instance and cached: a texture-heavy install calls this per texconv/texdiag invocation
+    /// (potentially tens of thousands of times), and re-scanning Steam's library directories every
+    /// time is pure overhead once the answer is known.
     /// </summary>
     /// <returns>Path to the Proton wrapper, or null if none found</returns>
     public async Task<string?> GetProtonWrapperPathAsync()
     {
-        // Debug logging removed
+        if (_wrapperPathResolved)
+            return _cachedWrapperPath;
 
+        await _wrapperPathGate.WaitAsync();
+        try
+        {
+            if (!_wrapperPathResolved)
+            {
+                _cachedWrapperPath = await ResolveProtonWrapperPathAsync();
+                _wrapperPathResolved = true;
+            }
+        }
+        finally
+        {
+            _wrapperPathGate.Release();
+        }
+
+        return _cachedWrapperPath;
+    }
+
+    private async Task<string?> ResolveProtonWrapperPathAsync()
+    {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             _logger.LogDebug("Running on Windows, no Proton needed");
