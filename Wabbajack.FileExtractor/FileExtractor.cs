@@ -716,10 +716,39 @@ public class FileExtractor
         
         var winePrefixPath = Path.Combine(Path.GetTempPath(), "jackify-proton-extraction");
         Directory.CreateDirectory(winePrefixPath);
-        
+
+        var (exitCode, stderr) = await RunProton7zProcess(protonPath, protonDetector, archivePath, outputPath, winePrefixPath);
+
+        if (exitCode != 0 && IsCorruptWinePrefixError(stderr))
+        {
+            _logger.LogWarning("Proton extraction prefix at {WinePrefix} appears corrupted (wrong architecture/invalid registry), recreating and retrying", winePrefixPath);
+            try
+            {
+                Directory.Delete(winePrefixPath, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to delete corrupted Proton extraction prefix at {WinePrefix}", winePrefixPath);
+            }
+            Directory.CreateDirectory(winePrefixPath);
+
+            (exitCode, stderr) = await RunProton7zProcess(protonPath, protonDetector, archivePath, outputPath, winePrefixPath);
+        }
+
+        return exitCode;
+    }
+
+    private static bool IsCorruptWinePrefixError(string stderr)
+    {
+        return stderr.Contains("is a 32-bit installation", StringComparison.OrdinalIgnoreCase)
+            || stderr.Contains("is not a valid registry file", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<(int ExitCode, string Stderr)> RunProton7zProcess(string protonPath, ProtonDetector protonDetector, string archivePath, string outputPath, string winePrefixPath)
+    {
         // Use absolute path to 7z.exe to avoid path resolution issues
         var sevenZipPath = "Extractors/windows-x64/7z.exe".ToRelativePath().RelativeTo(KnownFolders.EntryPoint).ToString();
-        
+
         var processInfo = new ProcessStartInfo
         {
             FileName = protonPath,
@@ -731,7 +760,7 @@ public class FileExtractor
             WorkingDirectory = KnownFolders.EntryPoint.ToString()
         };
 
-        // Set environment variables properly 
+        // Set environment variables properly
         processInfo.Environment["WINEPREFIX"] = winePrefixPath;
         processInfo.Environment["STEAM_COMPAT_DATA_PATH"] = winePrefixPath;
         processInfo.Environment["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = protonDetector.GetSteamClientInstallPath();
@@ -750,13 +779,13 @@ public class FileExtractor
 
         using var process = new Process { StartInfo = processInfo };
         process.Start();
-        
+
         // Capture output for debugging
         var stdout = await process.StandardOutput.ReadToEndAsync();
         var stderr = await process.StandardError.ReadToEndAsync();
-        
+
         await process.WaitForExitAsync();
-        
+
         if (process.ExitCode != 0)
         {
             _logger.LogError("Proton 7z.exe failed with exit code {ExitCode}", process.ExitCode);
@@ -768,8 +797,8 @@ public class FileExtractor
             _logger.LogDebug("Proton 7z.exe succeeded");
             _logger.LogDebug("STDOUT: {StdOut}", stdout);
         }
-        
-        return process.ExitCode;
+
+        return (process.ExitCode, stderr);
     }
 
     private async Task<IDictionary<RelativePath,T>> GatheringExtractWithBTAR<T>

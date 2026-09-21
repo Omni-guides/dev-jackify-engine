@@ -2,6 +2,10 @@
 
 Jackify-Engine is a Linux-native fork of Wabbajack CLI that provides full modlist installation capability on Linux systems using Proton for texture processing.
 
+## v0.5.10 - Proton extraction prefix corruption fix
+### Bug Fixes
+* Fixed archive extraction failing with a misleading "corrupted, incomplete, or incompatible" error when the shared Proton extraction prefix had a wrong-architecture or invalid registry (e.g. from a prior disk-full or interrupted run). The prefix is now detected as corrupt from the Wine error output, recreated, and the extraction retried automatically.
+
 ## v0.5.9 - Reliability fixes: download retry, Proton detection caching, transfer speed reporting
 ### Bug Fixes
 * Download retry now always runs for archives still missing after the download phase, even if no partial file was left behind.
