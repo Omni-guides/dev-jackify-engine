@@ -1,4 +1,5 @@
 using System;
+using K4os.Compression.LZ4;
 using Wabbajack.DTOs;
 using Wabbajack.Paths;
 
@@ -14,6 +15,8 @@ public class InstallerConfiguration
     public Game Game { get; set; }
     public Game[]? OtherGames { get; set; } = Array.Empty<Game>();
     public AbsolutePath GameFolder { get; set; }
+
+    public LZ4Level SseBsaCompressionLevel { get; set; } = LZ4Level.L12_MAX;
 
     public ModlistMetadata? Metadata { get; set; }
 }
